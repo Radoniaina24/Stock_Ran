@@ -1,0 +1,430 @@
+import { useMemo, useState } from 'react'
+import { ArrowDown, ArrowUp, Eye, Pencil, Plus, Trash2, Archive, ArchiveRestore } from 'lucide-react'
+import { PageHeader } from '../components/layout/PageHeader'
+import { Button } from '../components/ui/button'
+import { Card, CardContent } from '../components/ui/card'
+import { Checkbox } from '../components/ui/checkbox'
+import { ConfirmDialog } from '../components/ui/confirm-dialog'
+import { EmptyState, ErrorState, TableSkeleton } from '../components/ui/states'
+import { Pagination } from '../components/ui/pagination'
+import { SearchInput } from '../components/ui/search-input'
+import { Select } from '../components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table'
+import { useToast } from '../components/ui/toast'
+import { ActiveBadge, StockBadge } from '../components/products/StatusBadge'
+import { ProductDetailsDialog } from '../components/products/ProductDetailsDialog'
+import { ProductFormDialog } from '../components/products/ProductFormDialog'
+import { useCategories, useProductMutations, useProducts } from '../hooks/useProducts'
+import { useDebounce } from '../hooks/useDebounce'
+import { formatQuantity } from '../lib/utils'
+import { supabaseErrorMessage } from '../lib/supabase'
+import {
+  EMPTY_PRODUCT_FILTERS,
+  type Product,
+  type ProductFilters,
+  type ProductSortKey,
+} from '../types/database'
+
+type StatusFilter = ProductFilters['status']
+
+interface SortHeadProps {
+  column: ProductSortKey
+  label: string
+  sort: ProductSortKey
+  order: 'asc' | 'desc'
+  onSort: (column: ProductSortKey) => void
+}
+
+function SortHead({ column, label, sort, order, onSort }: SortHeadProps) {
+  const active = sort === column
+  return (
+    <th scope="col" className="h-10 px-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className="inline-flex cursor-pointer items-center gap-1 rounded transition-colors hover:text-foreground"
+        aria-label={`Trier par ${label}`}
+      >
+        {label}
+        {active ? (
+          order === 'asc' ? (
+            <ArrowUp className="size-3" />
+          ) : (
+            <ArrowDown className="size-3" />
+          )
+        ) : null}
+      </button>
+    </th>
+  )
+}
+
+export function ProductsPage() {
+  const toast = useToast()
+
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('')
+  const [status, setStatus] = useState<StatusFilter>('all')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
+  const [sort, setSort] = useState<ProductSortKey>('created_at')
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc')
+  const [page, setPage] = useState(1)
+
+  const [formOpen, setFormOpen] = useState(false)
+  const [formProduct, setFormProduct] = useState<Product | null>(null)
+  const [detailsProduct, setDetailsProduct] = useState<Product | null>(null)
+  const [archiving, setArchiving] = useState<Product | null>(null)
+  const [deleting, setDeleting] = useState<Product | null>(null)
+
+  const debouncedSearch = useDebounce(search, 300)
+
+  const filters = useMemo<ProductFilters>(
+    () => ({
+      ...EMPTY_PRODUCT_FILTERS,
+      search: debouncedSearch,
+      category,
+      status,
+      lowStockOnly,
+      sort,
+      order,
+      page,
+    }),
+    [debouncedSearch, category, status, lowStockOnly, sort, order, page],
+  )
+
+  const products = useProducts(filters)
+  const categories = useCategories()
+  const { setActive, remove } = useProductMutations()
+
+  const rows = products.data?.data ?? []
+  const total = products.data?.total ?? 0
+
+  const toggleSort = (key: ProductSortKey) => {
+    setPage(1)
+    if (sort === key) {
+      setOrder((current) => (current === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSort(key)
+      setOrder('asc')
+    }
+  }
+
+  const hasFilters =
+    Boolean(debouncedSearch) || Boolean(category) || status !== 'all' || lowStockOnly
+
+  const resetFilters = () => {
+    setSearch('')
+    setCategory('')
+    setStatus('all')
+    setLowStockOnly(false)
+    setPage(1)
+  }
+
+  const handleArchive = async () => {
+    if (!archiving) return
+    try {
+      await setActive.mutateAsync({ productId: archiving.id, isActive: !archiving.is_active })
+      toast.success(archiving.is_active ? 'Produit archivé.' : 'Produit réactivé.')
+      setArchiving(null)
+    } catch (error) {
+      toast.error(supabaseErrorMessage(error))
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleting) return
+    try {
+      await remove.mutateAsync(deleting.id)
+      toast.success('Produit supprimé.')
+      setDeleting(null)
+    } catch {
+      setDeleting(null)
+      toast.error(
+        'Ce produit possède déjà des mouvements : utilisez l’archivage pour préserver l’historique.',
+      )
+    }
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Produits"
+        description="Catalogue des produits et quantités disponibles."
+        actions={
+          <Button
+            onClick={() => {
+              setFormProduct(null)
+              setFormOpen(true)
+            }}
+          >
+            <Plus className="size-4" />
+            Ajouter un produit
+          </Button>
+        }
+      />
+
+      <Card className="mb-4">
+        <CardContent className="flex flex-wrap items-end gap-3 p-4">
+          <SearchInput
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setPage(1)
+            }}
+            onClear={() => {
+              setSearch('')
+              setPage(1)
+            }}
+            placeholder="Rechercher par référence ou nom…"
+            className="min-w-56 flex-1"
+            aria-label="Rechercher un produit"
+          />
+
+          <Select
+            value={category}
+            onChange={(event) => {
+              setCategory(event.target.value)
+              setPage(1)
+            }}
+            aria-label="Filtrer par catégorie"
+            className="w-44"
+          >
+            <option value="">Toutes les catégories</option>
+            {(categories.data ?? []).map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value as StatusFilter)
+              setPage(1)
+            }}
+            aria-label="Filtrer par statut"
+            className="w-40"
+          >
+            <option value="all">Tous les statuts</option>
+            <option value="active">Actifs</option>
+            <option value="archived">Archivés</option>
+          </Select>
+
+          <Checkbox
+            id="low-stock-only"
+            checked={lowStockOnly}
+            onChange={(event) => {
+              setLowStockOnly(event.target.checked)
+              setPage(1)
+            }}
+            label="Stock faible uniquement"
+          />
+
+          {hasFilters ? (
+            <Button variant="ghost" size="sm" onClick={resetFilters}>
+              Réinitialiser
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        {products.isLoading ? (
+          <TableSkeleton rows={6} columns={8} />
+        ) : products.isError ? (
+          <ErrorState
+            message={supabaseErrorMessage(products.error)}
+            onRetry={() => void products.refetch()}
+          />
+        ) : rows.length === 0 ? (
+          hasFilters ? (
+            <EmptyState
+              title="Aucun produit ne correspond à vos filtres."
+              description="Modifiez la recherche ou réinitialisez les filtres."
+              action={
+                <Button variant="outline" size="sm" onClick={resetFilters}>
+                  Réinitialiser les filtres
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="Aucun produit enregistré."
+              description="Ajoutez votre premier produit pour commencer."
+              action={
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setFormProduct(null)
+                    setFormOpen(true)
+                  }}
+                >
+                  <Plus className="size-4" />
+                  Ajouter un produit
+                </Button>
+              }
+            />
+          )
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortHead column="reference" label="Référence" sort={sort} order={order} onSort={toggleSort} />
+                  <SortHead column="name" label="Nom" sort={sort} order={order} onSort={toggleSort} />
+                  <SortHead column="category" label="Catégorie" sort={sort} order={order} onSort={toggleSort} />
+                  <SortHead column="quantity" label="Quantité" sort={sort} order={order} onSort={toggleSort} />
+                  <TableHead>Seuil</TableHead>
+                  <TableHead>Unité</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-end">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="font-mono text-xs">{product.reference}</TableCell>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {product.category || '—'}
+                    </TableCell>
+                    <TableCell className="font-medium">{formatQuantity(product.quantity)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatQuantity(product.low_stock_threshold)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{product.unit}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1.5">
+                        {product.is_active ? (
+                          <StockBadge
+                            status={
+                              product.quantity <= 0
+                                ? 'out'
+                                : product.quantity <= product.low_stock_threshold
+                                  ? 'low'
+                                  : 'ok'
+                            }
+                          />
+                        ) : (
+                          <ActiveBadge isActive={false} />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Voir les détails"
+                          aria-label={`Voir les détails de ${product.name}`}
+                          onClick={() => setDetailsProduct(product)}
+                        >
+                          <Eye className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Modifier"
+                          aria-label={`Modifier ${product.name}`}
+                          disabled={!product.is_active}
+                          onClick={() => {
+                            setFormProduct(product)
+                            setFormOpen(true)
+                          }}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title={product.is_active ? 'Archiver' : 'Réactiver'}
+                          aria-label={
+                            product.is_active
+                              ? `Archiver ${product.name}`
+                              : `Réactiver ${product.name}`
+                          }
+                          onClick={() => setArchiving(product)}
+                        >
+                          {product.is_active ? (
+                            <Archive className="size-4" />
+                          ) : (
+                            <ArchiveRestore className="size-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Supprimer"
+                          aria-label={`Supprimer ${product.name}`}
+                          disabled={!product.is_active}
+                          className="text-danger hover:bg-danger-soft hover:text-danger"
+                          onClick={() => setDeleting(product)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            <Pagination page={page} pageSize={filters.pageSize} total={total} onPageChange={setPage} />
+          </>
+        )}
+      </Card>
+
+      {formOpen ? (
+        <ProductFormDialog product={formProduct} onClose={() => setFormOpen(false)} />
+      ) : null}
+
+      <ProductDetailsDialog
+        product={detailsProduct}
+        onClose={() => setDetailsProduct(null)}
+        onEdit={(product) => {
+          setFormProduct(product)
+          setFormOpen(true)
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(archiving)}
+        title={archiving?.is_active ? 'Archiver le produit' : 'Réactiver le produit'}
+        message={
+          archiving?.is_active
+            ? `Le produit « ${archiving?.name} » sera masqué des formulaires de stock. Son historique de mouvements est conservé.`
+            : `Le produit « ${archiving?.name} » redeviendra disponible dans les formulaires de stock.`
+        }
+        confirmLabel={archiving?.is_active ? 'Archiver' : 'Réactiver'}
+        destructive={Boolean(archiving?.is_active)}
+        loading={setActive.isPending}
+        onConfirm={() => void handleArchive()}
+        onCancel={() => setArchiving(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        title="Supprimer le produit"
+        message={
+          <>
+            Supprimer définitivement <strong>{deleting?.name}</strong> ? Cette action est
+            irréversible. Un produit ayant déjà des mouvements ne peut pas être supprimé : il doit
+            être archivé.
+          </>
+        }
+        confirmLabel="Supprimer"
+        destructive
+        loading={remove.isPending}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleting(null)}
+      />
+    </>
+  )
+}

@@ -1,1 +1,64 @@
 @import "tailwindcss";
+
+@theme {
+  /* Typographie */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+
+  /* Couleurs : fond gris très clair, cartes blanches, bleu sobre */
+  --color-background: #f4f5f7;
+  --color-foreground: #111827;
+  --color-card: #ffffff;
+  --color-card-foreground: #111827;
+  --color-muted: #f1f3f5;
+  --color-muted-foreground: #6b7280;
+  --color-border: #e5e7eb;
+  --color-input: #d1d5db;
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #eff6ff;
+  --color-ring: #2563eb;
+
+  /* Sémantique stock */
+  --color-success: #16a34a;
+  --color-success-soft: #f0fdf4;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-warning: #f97316;
+  --color-warning-soft: #fff7ed;
+
+  --color-surface: #ffffff;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Préférence d'affichage : densité des tableaux */
+html[data-density='compact'] td,
+html[data-density='compact'] th {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
