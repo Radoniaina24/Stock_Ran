@@ -1,22 +1,17 @@
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Eye, Pencil, Plus, Trash2, Archive, ArchiveRestore } from 'lucide-react'
+import { createColumnHelper, type OnChangeFn, type SortingState } from '@tanstack/react-table'
+import { Eye, Pencil, Plus, Trash2, Archive, ArchiveRestore } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
 import { Checkbox } from '../components/ui/checkbox'
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
+import { DataTable } from '../components/ui/data-table'
+import type { DataTableFeatures } from '../components/ui/data-table-features'
 import { EmptyState, ErrorState, TableSkeleton } from '../components/ui/states'
 import { Pagination } from '../components/ui/pagination'
 import { SearchInput } from '../components/ui/search-input'
 import { Select } from '../components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table'
 import { useToast } from '../components/ui/toast'
 import { ActiveBadge, StockBadge } from '../components/products/StatusBadge'
 import { ProductDetailsDialog } from '../components/products/ProductDetailsDialog'
@@ -34,35 +29,126 @@ import {
 
 type StatusFilter = ProductFilters['status']
 
-interface SortHeadProps {
-  column: ProductSortKey
-  label: string
-  sort: ProductSortKey
-  order: 'asc' | 'desc'
-  onSort: (column: ProductSortKey) => void
+interface ProductActions {
+  onView: (product: Product) => void
+  onEdit: (product: Product) => void
+  onArchive: (product: Product) => void
+  onDelete: (product: Product) => void
 }
 
-function SortHead({ column, label, sort, order, onSort }: SortHeadProps) {
-  const active = sort === column
-  return (
-    <th scope="col" className="h-10 px-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className="inline-flex cursor-pointer items-center gap-1 rounded transition-colors hover:text-foreground"
-        aria-label={`Trier par ${label}`}
-      >
-        {label}
-        {active ? (
-          order === 'asc' ? (
-            <ArrowUp className="size-3" />
-          ) : (
-            <ArrowDown className="size-3" />
-          )
-        ) : null}
-      </button>
-    </th>
-  )
+const NO_PRODUCTS: Product[] = []
+const column = createColumnHelper<DataTableFeatures, Product>()
+
+function buildProductColumns(actions: ProductActions) {
+  return column.columns([
+    column.accessor('reference', {
+      header: 'Référence',
+      meta: { cellClassName: 'font-mono text-xs' },
+    }),
+    column.accessor('name', {
+      header: 'Nom',
+      meta: { cellClassName: 'font-medium' },
+    }),
+    column.accessor('category', {
+      header: 'Catégorie',
+      cell: (info) => info.getValue() || '—',
+      meta: { cellClassName: 'text-muted-foreground' },
+    }),
+    column.accessor('quantity', {
+      header: 'Quantité',
+      cell: (info) => formatQuantity(info.getValue()),
+      meta: { cellClassName: 'font-medium' },
+    }),
+    column.accessor('low_stock_threshold', {
+      header: 'Seuil',
+      cell: (info) => formatQuantity(info.getValue()),
+      meta: { cellClassName: 'text-muted-foreground' },
+    }),
+    column.accessor('unit', {
+      header: 'Unité',
+      enableSorting: false,
+      meta: { cellClassName: 'text-muted-foreground' },
+    }),
+    column.display({
+      id: 'status',
+      header: 'Statut',
+      cell: ({ row }) => {
+        const product = row.original
+        return (
+          <div className="flex flex-wrap gap-1.5">
+            {product.is_active ? (
+              <StockBadge
+                status={
+                  product.quantity <= 0
+                    ? 'out'
+                    : product.quantity <= product.low_stock_threshold
+                      ? 'low'
+                      : 'ok'
+                }
+              />
+            ) : (
+              <ActiveBadge isActive={false} />
+            )}
+          </div>
+        )
+      },
+    }),
+    column.display({
+      id: 'actions',
+      header: 'Actions',
+      meta: { headerClassName: 'text-end' },
+      cell: ({ row }) => {
+        const product = row.original
+        return (
+          <div className="flex justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Voir les détails"
+              aria-label={`Voir les détails de ${product.name}`}
+              onClick={() => actions.onView(product)}
+            >
+              <Eye className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Modifier"
+              aria-label={`Modifier ${product.name}`}
+              disabled={!product.is_active}
+              onClick={() => actions.onEdit(product)}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              title={product.is_active ? 'Archiver' : 'Réactiver'}
+              aria-label={product.is_active ? `Archiver ${product.name}` : `Réactiver ${product.name}`}
+              onClick={() => actions.onArchive(product)}
+            >
+              {product.is_active ? (
+                <Archive className="size-4" />
+              ) : (
+                <ArchiveRestore className="size-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Supprimer"
+              aria-label={`Supprimer ${product.name}`}
+              disabled={!product.is_active}
+              className="text-danger hover:bg-danger-soft hover:text-danger"
+              onClick={() => actions.onDelete(product)}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        )
+      },
+    }),
+  ])
 }
 
 export function ProductsPage() {
@@ -102,18 +188,33 @@ export function ProductsPage() {
   const categories = useCategories()
   const { setActive, remove } = useProductMutations()
 
-  const rows = products.data?.data ?? []
+  const rows = products.data?.data ?? NO_PRODUCTS
   const total = products.data?.total ?? 0
 
-  const toggleSort = (key: ProductSortKey) => {
+  const sorting = useMemo<SortingState>(() => [{ id: sort, desc: order === 'desc' }], [sort, order])
+
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = typeof updater === 'function' ? updater(sorting) : updater
+    const first = next[0]
+    if (!first) return
+    setSort(first.id as ProductSortKey)
+    setOrder(first.desc ? 'desc' : 'asc')
     setPage(1)
-    if (sort === key) {
-      setOrder((current) => (current === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSort(key)
-      setOrder('asc')
-    }
   }
+
+  const columns = useMemo(
+    () =>
+      buildProductColumns({
+        onView: setDetailsProduct,
+        onEdit: (product) => {
+          setFormProduct(product)
+          setFormOpen(true)
+        },
+        onArchive: setArchiving,
+        onDelete: setDeleting,
+      }),
+    [],
+  )
 
   const hasFilters =
     Boolean(debouncedSearch) || Boolean(category) || status !== 'all' || lowStockOnly
@@ -274,107 +375,13 @@ export function ProductsPage() {
           )
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortHead column="reference" label="Référence" sort={sort} order={order} onSort={toggleSort} />
-                  <SortHead column="name" label="Nom" sort={sort} order={order} onSort={toggleSort} />
-                  <SortHead column="category" label="Catégorie" sort={sort} order={order} onSort={toggleSort} />
-                  <SortHead column="quantity" label="Quantité" sort={sort} order={order} onSort={toggleSort} />
-                  <TableHead>Seuil</TableHead>
-                  <TableHead>Unité</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-end">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-mono text-xs">{product.reference}</TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {product.category || '—'}
-                    </TableCell>
-                    <TableCell className="font-medium">{formatQuantity(product.quantity)}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatQuantity(product.low_stock_threshold)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{product.unit}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1.5">
-                        {product.is_active ? (
-                          <StockBadge
-                            status={
-                              product.quantity <= 0
-                                ? 'out'
-                                : product.quantity <= product.low_stock_threshold
-                                  ? 'low'
-                                  : 'ok'
-                            }
-                          />
-                        ) : (
-                          <ActiveBadge isActive={false} />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Voir les détails"
-                          aria-label={`Voir les détails de ${product.name}`}
-                          onClick={() => setDetailsProduct(product)}
-                        >
-                          <Eye className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Modifier"
-                          aria-label={`Modifier ${product.name}`}
-                          disabled={!product.is_active}
-                          onClick={() => {
-                            setFormProduct(product)
-                            setFormOpen(true)
-                          }}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title={product.is_active ? 'Archiver' : 'Réactiver'}
-                          aria-label={
-                            product.is_active
-                              ? `Archiver ${product.name}`
-                              : `Réactiver ${product.name}`
-                          }
-                          onClick={() => setArchiving(product)}
-                        >
-                          {product.is_active ? (
-                            <Archive className="size-4" />
-                          ) : (
-                            <ArchiveRestore className="size-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Supprimer"
-                          aria-label={`Supprimer ${product.name}`}
-                          disabled={!product.is_active}
-                          className="text-danger hover:bg-danger-soft hover:text-danger"
-                          onClick={() => setDeleting(product)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataTable
+              columns={columns}
+              data={rows}
+              getRowId={(product) => product.id}
+              sorting={sorting}
+              onSortingChange={handleSortingChange}
+            />
 
             <Pagination page={page} pageSize={filters.pageSize} total={total} onPageChange={setPage} />
           </>

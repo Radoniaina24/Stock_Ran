@@ -64,7 +64,7 @@ export function AppLayout() {
       </header>
 
       <main className="px-4 py-6 pb-24 md:ms-60 md:pb-10">
-        <div className="mx-auto w-full max-w-6xl">
+        <div className="w-full">
           <Suspense fallback={<LoadingState label="Chargement de la page…" />}>
             <Outlet />
           </Suspense>

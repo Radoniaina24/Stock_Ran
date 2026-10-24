@@ -1,20 +1,64 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { createColumnHelper } from '@tanstack/react-table'
 import { Button } from '../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
+import { DataTable } from '../ui/data-table'
+import type { DataTableFeatures } from '../ui/data-table-features'
 import { EmptyState, ErrorState, LoadingState } from '../ui/states'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../ui/table'
 import { supabaseErrorMessage } from '../../lib/supabase'
 import { formatDate, formatQuantity } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 import { useRecentMovements } from '../../hooks/useMovements'
+import type { StockMovement } from '../../types/database'
 import { MovementBadge } from './MovementBadge'
+
+const NO_MOVEMENTS: StockMovement[] = []
+const column = createColumnHelper<DataTableFeatures, StockMovement>()
+
+function buildRecentColumns(userEmail: string) {
+  return column.columns([
+    column.accessor('created_at', {
+      header: 'Date et heure',
+      cell: (info) => formatDate(info.getValue()),
+      meta: { cellClassName: 'whitespace-nowrap text-muted-foreground' },
+    }),
+    column.accessor('product_name', {
+      header: 'Produit',
+      cell: ({ row }) => (
+        <>
+          {row.original.product_name}
+          <span className="ms-2 font-mono text-xs text-muted-foreground">
+            {row.original.product_reference}
+          </span>
+        </>
+      ),
+      meta: { cellClassName: 'font-medium' },
+    }),
+    column.accessor('type', {
+      header: 'Type',
+      cell: (info) => <MovementBadge type={info.getValue()} />,
+    }),
+    column.accessor('quantity', {
+      header: 'Quantité',
+      cell: (info) => formatQuantity(info.getValue()),
+      meta: { headerClassName: 'text-end', cellClassName: 'text-end font-medium' },
+    }),
+    column.accessor('reason', {
+      header: 'Motif',
+      meta: { cellClassName: 'text-muted-foreground' },
+    }),
+    column.display({
+      id: 'user',
+      header: 'Utilisateur',
+      cell: () => <span title={userEmail}>{userEmail}</span>,
+      meta: {
+        headerClassName: 'hidden sm:table-cell',
+        cellClassName: 'hidden max-w-40 truncate text-muted-foreground sm:table-cell',
+      },
+    }),
+  ])
+}
 
 export interface RecentMovementsCardProps {
   limit?: number
@@ -26,6 +70,7 @@ export function RecentMovementsCard({ limit = 8, showHistoryLink = true }: Recen
   const navigate = useNavigate()
   const { user } = useAuth()
   const userEmail = user?.email ?? '—'
+  const columns = useMemo(() => buildRecentColumns(userEmail), [userEmail])
 
   return (
     <Card>
@@ -54,46 +99,11 @@ export function RecentMovementsCard({ limit = 8, showHistoryLink = true }: Recen
             description="Les entrées et sorties apparaîtront ici."
           />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date et heure</TableHead>
-                <TableHead>Produit</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-end">Quantité</TableHead>
-                <TableHead>Motif</TableHead>
-                <TableHead className="hidden sm:table-cell">Utilisateur</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(recent.data ?? []).map((movement) => (
-                <TableRow key={movement.id}>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {formatDate(movement.created_at)}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {movement.product_name}
-                    <span className="ms-2 font-mono text-xs text-muted-foreground">
-                      {movement.product_reference}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <MovementBadge type={movement.type} />
-                  </TableCell>
-                  <TableCell className="text-end font-medium">
-                    {formatQuantity(movement.quantity)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{movement.reason}</TableCell>
-                  <TableCell
-                    className="hidden max-w-40 truncate text-muted-foreground sm:table-cell"
-                    title={userEmail}
-                  >
-                    {userEmail}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={columns}
+            data={recent.data ?? NO_MOVEMENTS}
+            getRowId={(movement) => movement.id}
+          />
         )}
       </CardContent>
     </Card>

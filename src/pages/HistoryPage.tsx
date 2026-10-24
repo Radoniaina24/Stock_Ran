@@ -1,22 +1,17 @@
 import { useMemo, useState } from 'react'
+import { createColumnHelper } from '@tanstack/react-table'
 import { Download, FilterX, Loader2 } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/button'
 import { Card, CardContent } from '../components/ui/card'
+import { DataTable } from '../components/ui/data-table'
+import type { DataTableFeatures } from '../components/ui/data-table-features'
 import { EmptyState, ErrorState, TableSkeleton } from '../components/ui/states'
 import { FormField } from '../components/ui/form-field'
 import { Input } from '../components/ui/input'
 import { Pagination } from '../components/ui/pagination'
 import { SearchInput } from '../components/ui/search-input'
 import { Select } from '../components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table'
 import { useToast } from '../components/ui/toast'
 import { MovementBadge } from '../components/stock/MovementBadge'
 import { useAuth } from '../hooks/useAuth'
@@ -27,10 +22,65 @@ import { exportMovementsCsv } from '../lib/csv'
 import { supabaseErrorMessage } from '../lib/supabase'
 import { formatDate, formatQuantity } from '../lib/utils'
 import { EMPTY_MOVEMENT_FILTERS, ENTRY_REASONS, EXIT_REASONS } from '../types/database'
-import type { MovementFilters, MovementType } from '../types/database'
+import type { MovementFilters, MovementType, StockMovement } from '../types/database'
 
 const PAGE_SIZE = 20
 const ALL_REASONS = Array.from(new Set([...ENTRY_REASONS, ...EXIT_REASONS]))
+
+const NO_MOVEMENTS: StockMovement[] = []
+const column = createColumnHelper<DataTableFeatures, StockMovement>()
+
+function buildHistoryColumns(userEmail: string) {
+  return column.columns([
+    column.accessor('created_at', {
+      header: 'Date et heure',
+      cell: (info) => formatDate(info.getValue()),
+      meta: { cellClassName: 'whitespace-nowrap text-muted-foreground' },
+    }),
+    column.accessor('product_reference', {
+      header: 'Référence',
+      meta: { cellClassName: 'font-mono text-xs' },
+    }),
+    column.accessor('product_name', {
+      header: 'Produit',
+      meta: { cellClassName: 'font-medium' },
+    }),
+    column.accessor('type', {
+      header: 'Type',
+      cell: (info) => <MovementBadge type={info.getValue()} />,
+    }),
+    column.accessor('quantity', {
+      header: 'Quantité',
+      cell: (info) => formatQuantity(info.getValue()),
+      meta: { headerClassName: 'text-end', cellClassName: 'text-end font-medium' },
+    }),
+    column.accessor('quantity_before', {
+      header: 'Stock avant',
+      cell: (info) => formatQuantity(info.getValue()),
+      meta: { headerClassName: 'text-end', cellClassName: 'text-end text-muted-foreground' },
+    }),
+    column.accessor('quantity_after', {
+      header: 'Stock après',
+      cell: (info) => formatQuantity(info.getValue()),
+      meta: { headerClassName: 'text-end', cellClassName: 'text-end text-muted-foreground' },
+    }),
+    column.accessor('reason', {
+      header: 'Motif',
+      meta: { cellClassName: 'text-muted-foreground' },
+    }),
+    column.accessor('comment', {
+      header: 'Commentaire',
+      cell: (info) => <span title={info.getValue() ?? undefined}>{info.getValue() || '—'}</span>,
+      meta: { cellClassName: 'max-w-40 truncate text-muted-foreground' },
+    }),
+    column.display({
+      id: 'user',
+      header: 'Utilisateur',
+      cell: () => <span title={userEmail}>{userEmail}</span>,
+      meta: { cellClassName: 'max-w-40 truncate text-muted-foreground' },
+    }),
+  ])
+}
 
 export function HistoryPage() {
   const toast = useToast()
@@ -63,9 +113,10 @@ export function HistoryPage() {
   const movements = useMovements(filters, page, PAGE_SIZE)
   const productOptions = useProductOptions()
 
-  const rows = movements.data?.data ?? []
+  const rows = movements.data?.data ?? NO_MOVEMENTS
   const total = movements.data?.total ?? 0
   const userEmail = user?.email ?? '—'
+  const columns = useMemo(() => buildHistoryColumns(userEmail), [userEmail])
 
   const hasFilters =
     Boolean(debouncedSearch) ||
@@ -224,54 +275,7 @@ export function HistoryPage() {
           )
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date et heure</TableHead>
-                  <TableHead>Référence</TableHead>
-                  <TableHead>Produit</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-end">Quantité</TableHead>
-                  <TableHead className="text-end">Stock avant</TableHead>
-                  <TableHead className="text-end">Stock après</TableHead>
-                  <TableHead>Motif</TableHead>
-                  <TableHead>Commentaire</TableHead>
-                  <TableHead>Utilisateur</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((movement) => (
-                  <TableRow key={movement.id}>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {formatDate(movement.created_at)}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {movement.product_reference}
-                    </TableCell>
-                    <TableCell className="font-medium">{movement.product_name}</TableCell>
-                    <TableCell>
-                      <MovementBadge type={movement.type} />
-                    </TableCell>
-                    <TableCell className="text-end font-medium">
-                      {formatQuantity(movement.quantity)}
-                    </TableCell>
-                    <TableCell className="text-end text-muted-foreground">
-                      {formatQuantity(movement.quantity_before)}
-                    </TableCell>
-                    <TableCell className="text-end text-muted-foreground">
-                      {formatQuantity(movement.quantity_after)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{movement.reason}</TableCell>
-                    <TableCell className="max-w-40 truncate text-muted-foreground">
-                      {movement.comment || '—'}
-                    </TableCell>
-                    <TableCell className="max-w-40 truncate text-muted-foreground" title={userEmail}>
-                      {userEmail}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataTable columns={columns} data={rows} getRowId={(movement) => movement.id} />
 
             <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
           </>
