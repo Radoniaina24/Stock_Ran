@@ -153,14 +153,19 @@ function buildProductColumns(actions: ProductActions) {
           <div className="flex min-w-0 items-center gap-3">
             <ProductAvatar status={getProductStatus(product)} archived={!product.is_active} />
             <div className="min-w-0">
-              <p className="max-w-64 truncate font-medium text-foreground" title={product.name}>
+              <p className="truncate font-medium text-foreground" title={product.name}>
                 {product.name}
               </p>
-              <p className="font-mono text-xs text-muted-foreground">{product.reference}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                <span className="font-mono">{product.reference}</span>
+                {product.category ? <span className="@5xl:hidden"> · {product.category}</span> : null}
+              </p>
             </div>
           </div>
         )
       },
+      // Colonne extensible : occupe l'espace restant et tronque le nom au lieu d'élargir le tableau.
+      meta: { cellClassName: 'w-full max-w-0' },
     }),
     column.accessor('category', {
       header: 'Catégorie',
@@ -172,6 +177,10 @@ function buildProductColumns(actions: ProductActions) {
         ) : (
           <span className="text-muted-foreground">—</span>
         ),
+      meta: {
+        headerClassName: 'hidden @5xl:table-cell',
+        cellClassName: 'hidden @5xl:table-cell',
+      },
     }),
     column.accessor('quantity', {
       header: 'Stock',
@@ -198,8 +207,8 @@ function buildProductColumns(actions: ProductActions) {
       header: 'Seuil',
       cell: (info) => formatQuantity(info.getValue()),
       meta: {
-        headerClassName: 'hidden xl:table-cell',
-        cellClassName: 'hidden text-muted-foreground tabular-nums xl:table-cell',
+        headerClassName: 'hidden @6xl:table-cell',
+        cellClassName: 'hidden text-muted-foreground tabular-nums @6xl:table-cell',
       },
     }),
     column.display({
@@ -220,46 +229,50 @@ function ProductCard({ product, actions }: { product: Product; actions: ProductA
   const status = getProductStatus(product)
 
   return (
-    <li className="flex flex-col rounded-xl border border-border bg-card transition-all hover:border-primary/25 hover:shadow-sm">
+    <li className="flex min-w-0 flex-col rounded-xl border border-border bg-card transition-all hover:border-primary/25 hover:shadow-sm">
       <button
         type="button"
         onClick={() => actions.onView(product)}
-        className="flex flex-1 cursor-pointer flex-col gap-3 rounded-t-xl p-4 text-start outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+        className="flex min-w-0 flex-1 cursor-pointer flex-col gap-3 rounded-t-xl p-4 text-start outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
         aria-label={`Voir les détails de ${product.name}`}
       >
-        <div className="flex w-full items-start gap-3">
+        <div className="flex w-full min-w-0 items-start gap-3">
           <ProductAvatar status={status} archived={!product.is_active} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+            <p className="line-clamp-2 break-words text-sm font-medium text-foreground" title={product.name}>
+              {product.name}
+            </p>
             <p className="truncate text-xs text-muted-foreground">
               <span className="font-mono">{product.reference}</span>
               {product.category ? <span> · {product.category}</span> : null}
             </p>
           </div>
-          <ProductStatus product={product} />
         </div>
 
         <div className="w-full">
-          <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
-            <span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
               <span className="text-base font-semibold text-foreground tabular-nums">
                 {formatQuantity(product.quantity)}
               </span>{' '}
               {product.unit}
-            </span>
-            <span className="tabular-nums">Seuil {formatQuantity(product.low_stock_threshold)}</span>
+            </p>
+            <ProductStatus product={product} />
           </div>
           <StockLevelBar
-            className="mt-1.5"
+            className="mt-2"
             quantity={product.quantity}
             threshold={product.low_stock_threshold}
             status={status}
             muted={!product.is_active}
           />
+          <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+            Seuil d’alerte : {formatQuantity(product.low_stock_threshold)} {product.unit}
+          </p>
         </div>
       </button>
 
-      <div className="flex items-center justify-between gap-2 border-t border-border px-2 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border px-2 py-1.5">
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => actions.onView(product)}>
           <Eye className="size-3.5" />
           Détails
@@ -273,7 +286,7 @@ function ProductCard({ product, actions }: { product: Product; actions: ProductA
 function ProductsSkeleton() {
   return (
     <SkeletonGroup label="Chargement des produits…">
-      <ul className="grid gap-3 p-4 sm:grid-cols-2 lg:hidden">
+      <ul className="grid grid-cols-1 gap-3 p-4 @xl:grid-cols-2 @3xl:hidden">
         {Array.from({ length: 4 }, (_, i) => (
           <li key={i} className="rounded-xl border border-border p-4">
             <div className="flex items-start gap-3">
@@ -282,14 +295,16 @@ function ProductsSkeleton() {
                 <Skeleton className="h-3.5 w-3/5" />
                 <Skeleton className="h-3 w-2/5" />
               </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <Skeleton className="h-4 w-20" />
               <Skeleton className="h-5 w-16 rounded-full" />
             </div>
-            <Skeleton className="mt-4 h-4 w-20" />
             <Skeleton className="mt-2 h-1.5 w-full rounded-full" />
           </li>
         ))}
       </ul>
-      <div className="hidden lg:block">
+      <div className="hidden @3xl:block">
         <div className="flex gap-6 bg-muted/60 px-4 py-3.5">
           {['w-40', 'w-20', 'w-16', 'w-14'].map((width, i) => (
             <Skeleton key={i} className={cn('h-3 bg-muted', width, i === 0 && 'me-auto')} />
@@ -297,14 +312,14 @@ function ProductsSkeleton() {
         </div>
         {Array.from({ length: 6 }, (_, i) => (
           <div key={i} className="flex items-center gap-6 border-t border-border px-4 py-3">
-            <div className="flex flex-1 items-center gap-3">
-              <Skeleton className="size-9 rounded-lg" />
-              <div className="space-y-1.5">
-                <Skeleton className="h-3.5 w-44" />
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <Skeleton className="size-9 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-3.5 w-full max-w-44" />
                 <Skeleton className="h-3 w-20" />
               </div>
             </div>
-            <Skeleton className="h-5 w-20 rounded-full" />
+            <Skeleton className="hidden h-5 w-20 rounded-full @5xl:block" />
             <div className="w-32 space-y-1.5">
               <Skeleton className="h-3.5 w-14" />
               <Skeleton className="h-1.5 w-full rounded-full" />
@@ -443,7 +458,7 @@ export function ProductsPage() {
         }
       />
 
-      <Card className="overflow-hidden rounded-xl">
+      <Card className="@container overflow-hidden rounded-xl">
         <div className="space-y-3 border-b border-border p-4">
           <div
             role="group"
@@ -473,7 +488,7 @@ export function ProductsPage() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-col gap-2 @3xl:flex-row @3xl:items-center">
             <SearchInput
               value={search}
               onChange={(event) => {
@@ -485,11 +500,11 @@ export function ProductsPage() {
                 setPage(1)
               }}
               placeholder="Rechercher par référence ou nom…"
-              className="sm:min-w-64 sm:flex-1"
+              className="min-w-0 @3xl:flex-1"
               aria-label="Rechercher un produit"
             />
 
-            <div className="grid grid-cols-2 gap-2 sm:flex">
+            <div className="grid grid-cols-1 gap-2 @xs:grid-cols-2 @3xl:flex @3xl:shrink-0">
               <Select
                 value={category}
                 onChange={(event) => {
@@ -497,7 +512,7 @@ export function ProductsPage() {
                   setPage(1)
                 }}
                 aria-label="Filtrer par catégorie"
-                className="sm:w-48"
+                className="min-w-0 @3xl:w-48"
               >
                 <option value="">Toutes catégories</option>
                 {(categories.data ?? []).map((value) => (
@@ -514,7 +529,7 @@ export function ProductsPage() {
                   applySort(key as ProductSortKey, direction as 'asc' | 'desc')
                 }}
                 aria-label="Trier les produits"
-                className="sm:w-48 lg:hidden"
+                className="min-w-0 @3xl:hidden"
               >
                 {SORT_OPTIONS.some((option) => option.value === sortValue) ? null : (
                   <option value={sortValue}>Tri personnalisé</option>
@@ -528,7 +543,7 @@ export function ProductsPage() {
             </div>
 
             {hasFilters ? (
-              <Button variant="ghost" size="sm" onClick={resetFilters} className="self-start sm:self-auto">
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="self-start @3xl:self-auto">
                 <RotateCcw className="size-3.5" />
                 Réinitialiser
               </Button>
@@ -572,12 +587,12 @@ export function ProductsPage() {
               className={cn('transition-opacity', products.isPlaceholderData && 'pointer-events-none opacity-60')}
               aria-busy={products.isFetching}
             >
-              <ul className="grid gap-3 p-4 sm:grid-cols-2 lg:hidden">
+              <ul className="grid grid-cols-1 gap-3 p-4 @xl:grid-cols-2 @3xl:hidden">
                 {rows.map((product) => (
                   <ProductCard key={product.id} product={product} actions={actions} />
                 ))}
               </ul>
-              <div className="hidden lg:block">
+              <div className="hidden @3xl:block">
                 <DataTable
                   columns={columns}
                   data={rows}
