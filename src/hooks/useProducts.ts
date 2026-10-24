@@ -5,6 +5,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query'
 import { useAuth } from './useAuth'
+import { invalidateStockQueries } from './stockQueries'
 import type { Product, ProductFilters } from '../types/database'
 import {
   createProduct,
@@ -73,14 +74,7 @@ export function useProductMutations() {
   const userId = user?.id ?? ''
   const queryClient = useQueryClient()
 
-  const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['products'] })
-    void queryClient.invalidateQueries({ queryKey: ['product-categories'] })
-    void queryClient.invalidateQueries({ queryKey: ['products-active'] })
-    void queryClient.invalidateQueries({ queryKey: ['product-options'] })
-    void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-    void queryClient.invalidateQueries({ queryKey: ['movements'] })
-  }
+  const invalidate = () => invalidateStockQueries(queryClient)
 
   const create = useMutation({
     mutationFn: (input: CreateProductInput) => createProduct(userId, input),

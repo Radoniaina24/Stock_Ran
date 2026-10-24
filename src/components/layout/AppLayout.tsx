@@ -5,6 +5,7 @@ import { Brand, NavList, SidebarFooter } from './Sidebar'
 import { NAV_ITEMS } from './nav'
 import { cn } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
+import { useRealtimeSync } from '../../hooks/useRealtimeSync'
 import { LoadingState } from '../ui/states'
 
 function MobileNav() {
@@ -38,6 +39,7 @@ function MobileNav() {
 
 export function AppLayout() {
   const { signOut } = useAuth()
+  useRealtimeSync()
 
   return (
     <div className="min-h-svh">

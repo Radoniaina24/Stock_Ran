@@ -5,6 +5,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query'
 import { useAuth } from './useAuth'
+import { invalidateStockQueries } from './stockQueries'
 import type { MovementFilters, StockMovement } from '../types/database'
 import {
   fetchMovementsForExport,
@@ -53,12 +54,7 @@ export function useRecentMovements(limit = 8) {
 export function useMovementMutations() {
   const queryClient = useQueryClient()
 
-  const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['movements'] })
-    void queryClient.invalidateQueries({ queryKey: ['products'] })
-    void queryClient.invalidateQueries({ queryKey: ['products-active'] })
-    void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-  }
+  const invalidate = () => invalidateStockQueries(queryClient)
 
   const addEntry = useMutation({
     mutationFn: (input: RecordMovementInput) => recordStockEntry(input),
