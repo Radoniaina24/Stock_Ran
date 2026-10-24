@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Check, ChevronsUpDown, SearchX } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Check, ChevronsUpDown, Search, SearchX } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 export interface ComboboxOption {
   value: string
   label: string
   description?: string
+  /** Contenu affiché à droite de l'option (non pris en compte par la recherche). */
+  aside?: ReactNode
 }
 
 export interface ComboboxProps {
@@ -16,6 +18,10 @@ export interface ComboboxProps {
   placeholder?: string
   emptyText?: string
   disabled?: boolean
+  invalid?: boolean
+  /** Cible du focus initial lorsqu'il est affiché dans une modale. */
+  autoFocusTarget?: boolean
+  className?: string
 }
 
 function normalize(value: string): string {
@@ -33,6 +39,9 @@ export function Combobox({
   placeholder = 'Rechercher…',
   emptyText = 'Aucun résultat',
   disabled,
+  invalid,
+  autoFocusTarget,
+  className,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -97,14 +106,17 @@ export function Combobox({
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className={cn('relative', className)}>
       <div className="relative">
+        <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <input
           id={id}
           role="combobox"
           type="text"
           autoComplete="off"
           disabled={disabled}
+          data-autofocus={autoFocusTarget || undefined}
+          aria-invalid={invalid || undefined}
           aria-expanded={open}
           aria-controls={id ? `${id}-listbox` : undefined}
           aria-autocomplete="list"
@@ -117,16 +129,19 @@ export function Combobox({
             setOpen(true)
           }}
           onKeyDown={onKeyDown}
-          className="h-9 w-full rounded-md border border-input bg-card ps-3 pe-9 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+          className={cn(
+            'h-10 w-full rounded-lg border border-input bg-card ps-9 pe-9 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50',
+            invalid && 'border-danger',
+          )}
         />
-        <ChevronsUpDown className="pointer-events-none absolute end-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <ChevronsUpDown className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       </div>
 
       {open ? (
         <ul
           id={id ? `${id}-listbox` : undefined}
           role="listbox"
-          className="absolute z-40 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-card p-1 shadow-md"
+          className="absolute z-40 mt-1.5 max-h-72 w-full animate-dialog-in overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-lg motion-reduce:animate-none"
         >
           {filtered.length === 0 ? (
             <li className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
@@ -143,19 +158,23 @@ export function Combobox({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => select(option)}
                 className={cn(
-                  'flex cursor-pointer items-center justify-between gap-2 rounded px-3 py-2 text-sm',
-                  index === activePosition ? 'bg-primary-soft text-primary' : 'text-foreground',
+                  'flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm',
+                  index === activePosition ? 'bg-muted' : 'text-foreground',
                 )}
               >
-                <span className="min-w-0">
-                  <span className="block truncate">{option.label}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-foreground">{option.label}</span>
                   {option.description ? (
                     <span className="block truncate text-xs text-muted-foreground">
                       {option.description}
                     </span>
                   ) : null}
                 </span>
-                {option.value === value ? <Check className="size-4 shrink-0" /> : null}
+                {option.aside ? <span className="shrink-0 text-xs">{option.aside}</span> : null}
+                <Check
+                  className={cn('size-4 shrink-0 text-primary', option.value === value ? 'opacity-100' : 'opacity-0')}
+                  aria-hidden="true"
+                />
               </li>
             ))
           )}

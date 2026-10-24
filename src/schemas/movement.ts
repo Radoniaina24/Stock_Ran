@@ -68,6 +68,14 @@ export const adjustmentSchema = z.object({
   comment: optionalText(500, 'Le commentaire'),
 })
 
+/** Ajustement saisi en valeur absolue : le sens (+ / −) est choisi à part. */
+export const adjustmentFormSchema = z.object({
+  productId: z.string().min(1, 'Sélectionnez un produit.'),
+  quantity: quantitySchema,
+  reason: reasonField(ADJUSTMENT_REASONS),
+  comment: optionalText(500, 'Le commentaire'),
+})
+
 export type AdjustmentFormValues = z.input<typeof adjustmentSchema>
 export type AdjustmentFormPayload = z.output<typeof adjustmentSchema>
 

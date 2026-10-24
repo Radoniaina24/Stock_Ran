@@ -1,5 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { adjustmentSchema, entrySchema, exitSchema } from './movement'
+import { adjustmentFormSchema, adjustmentSchema, entrySchema, exitSchema } from './movement'
+
+describe('adjustmentFormSchema', () => {
+  const adjustment = {
+    productId: 'a1b2c3d4-0000-0000-0000-000000000000',
+    quantity: '4',
+    reason: 'inventaire',
+    comment: '',
+  }
+
+  it('accepte une valeur absolue avec un motif d’ajustement', () => {
+    const result = adjustmentFormSchema.safeParse(adjustment)
+    expect(result.success && result.data.quantity).toBe(4)
+  })
+
+  it('refuse une valeur négative ou nulle : le sens est choisi à part', () => {
+    expect(adjustmentFormSchema.safeParse({ ...adjustment, quantity: '-4' }).success).toBe(false)
+    expect(adjustmentFormSchema.safeParse({ ...adjustment, quantity: '0' }).success).toBe(false)
+  })
+
+  it('refuse un motif de sortie', () => {
+    expect(adjustmentFormSchema.safeParse({ ...adjustment, reason: 'casse' }).success).toBe(false)
+  })
+})
 
 function issue(
   schema: typeof entrySchema,

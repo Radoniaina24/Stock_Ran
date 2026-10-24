@@ -1,4 +1,16 @@
-import type { Product, StockStatus } from '../types/database'
+import type { MovementType, Product, StockStatus } from '../types/database'
+
+/** Variation signée appliquée au stock par un mouvement saisi en valeur absolue. */
+export function signedDelta(
+  type: MovementType,
+  quantity: number,
+  direction: 'up' | 'down' = 'up',
+): number {
+  const q = Math.abs(quantity)
+  if (type === 'exit') return -q
+  if (type === 'adjustment' && direction === 'down') return -q
+  return q
+}
 
 /**
  * Rupture  : quantité = 0

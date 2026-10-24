@@ -48,6 +48,7 @@ export function Modal({
     const panel = panelRef.current
     const body = panel?.querySelector<HTMLElement>('[data-modal-body]')
     const focusable =
+      body?.querySelector<HTMLElement>('[data-autofocus]') ??
       body?.querySelector<HTMLElement>(
         'input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
       ) ??

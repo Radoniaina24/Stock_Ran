@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowDownLeft,
+  ArrowLeftRight,
   ArrowRight,
   ArrowUpRight,
   CalendarClock,
@@ -128,9 +129,10 @@ export interface ProductDetailsDialogProps {
   product: Product | null
   onClose: () => void
   onEdit: (product: Product) => void
+  onMovement?: (product: Product) => void
 }
 
-export function ProductDetailsDialog({ product, onClose, onEdit }: ProductDetailsDialogProps) {
+export function ProductDetailsDialog({ product, onClose, onEdit, onMovement }: ProductDetailsDialogProps) {
   const status = product ? getProductStatus(product) : 'ok'
 
   return (
@@ -153,6 +155,18 @@ export function ProductDetailsDialog({ product, onClose, onEdit }: ProductDetail
           <Button variant="outline" onClick={onClose}>
             Fermer
           </Button>
+          {product?.is_active && onMovement ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                onClose()
+                onMovement(product)
+              }}
+            >
+              <ArrowLeftRight className="size-4" />
+              Mouvement
+            </Button>
+          ) : null}
           {product?.is_active ? (
             <Button
               onClick={() => {

@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { getProductStatus, getStockLevel, getStockStatus, STOCK_STATUS_LABELS } from './stock'
+import {
+  getProductStatus,
+  getStockLevel,
+  getStockStatus,
+  signedDelta,
+  STOCK_STATUS_LABELS,
+} from './stock'
+
+describe('signedDelta', () => {
+  it('ajoute pour une entrée et retire pour une sortie', () => {
+    expect(signedDelta('entry', 5)).toBe(5)
+    expect(signedDelta('exit', 5)).toBe(-5)
+  })
+
+  it('suit le sens choisi pour un ajustement', () => {
+    expect(signedDelta('adjustment', 2, 'up')).toBe(2)
+    expect(signedDelta('adjustment', 2, 'down')).toBe(-2)
+  })
+})
 
 describe('getStockLevel', () => {
   it('place le seuil à mi-jauge et plafonne à 100', () => {

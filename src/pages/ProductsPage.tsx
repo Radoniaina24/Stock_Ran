@@ -1,7 +1,16 @@
 import { useMemo, useState, type MouseEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createColumnHelper, type OnChangeFn, type SortingState } from '@tanstack/react-table'
-import { Archive, ArchiveRestore, Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowLeftRight,
+  Eye,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -19,6 +28,7 @@ import { ActiveBadge, StockBadge } from '../components/products/StatusBadge'
 import { ProductAvatar, StockLevelBar } from '../components/products/ProductVisuals'
 import { ProductDetailsDialog } from '../components/products/ProductDetailsDialog'
 import { ProductFormDialog } from '../components/products/ProductFormDialog'
+import { MovementDialog } from '../components/stock/MovementDialog'
 import { useCategories, useProductMutations, useProducts } from '../hooks/useProducts'
 import { useDebounce } from '../hooks/useDebounce'
 import { getProductStatus } from '../lib/stock'
@@ -52,6 +62,7 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
 
 interface ProductActions {
   onView: (product: Product) => void
+  onMovement: (product: Product) => void
   onEdit: (product: Product) => void
   onArchive: (product: Product) => void
   onDelete: (product: Product) => void
@@ -85,6 +96,17 @@ function RowActions({ product, actions, withDetails = true }: { product: Product
           <Eye className="size-4" />
         </Button>
       ) : null}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        title="Mouvement de stock"
+        aria-label={`Enregistrer un mouvement pour ${product.name}`}
+        disabled={!product.is_active}
+        onClick={() => actions.onMovement(product)}
+      >
+        <ArrowLeftRight className="size-4" />
+      </Button>
       <Button
         variant="ghost"
         size="icon"
@@ -310,6 +332,7 @@ export function ProductsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [formProduct, setFormProduct] = useState<Product | null>(null)
   const [detailsProduct, setDetailsProduct] = useState<Product | null>(null)
+  const [movementProduct, setMovementProduct] = useState<Product | null>(null)
   const [archiving, setArchiving] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState<Product | null>(null)
 
@@ -360,6 +383,7 @@ export function ProductsPage() {
   const actions = useMemo<ProductActions>(
     () => ({
       onView: setDetailsProduct,
+      onMovement: setMovementProduct,
       onEdit: (product) => {
         setFormProduct(product)
         setFormOpen(true)
@@ -578,7 +602,10 @@ export function ProductsPage() {
         product={detailsProduct}
         onClose={() => setDetailsProduct(null)}
         onEdit={actions.onEdit}
+        onMovement={actions.onMovement}
       />
+
+      <MovementDialog product={movementProduct} onClose={() => setMovementProduct(null)} />
 
       <ConfirmDialog
         open={Boolean(archiving)}
