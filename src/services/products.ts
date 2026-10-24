@@ -161,13 +161,19 @@ export async function setProductActive(
 }
 
 export async function deleteProduct(userId: string, productId: string): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('products')
     .delete()
     .eq('id', productId)
     .eq('user_id', userId)
+    .select('id')
 
   if (error) throw error
+  // La politique RLS masque les produits ayant des mouvements : la suppression
+  // ne renvoie alors aucune erreur mais n'affecte aucune ligne.
+  if (!data || data.length === 0) {
+    throw new Error('Ce produit possède des mouvements de stock et ne peut pas être supprimé.')
+  }
 }
 
 export function hasMovementsErrorMessage(error: unknown): boolean {
