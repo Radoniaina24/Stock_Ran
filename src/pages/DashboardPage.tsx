@@ -59,7 +59,7 @@ export function DashboardPage() {
   const isRefreshing = dashboard.isFetching && !dashboard.isLoading
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div className="w-full">
       <PageHeader
         title="Tableau de bord"
         description={`${today} · Vue d’ensemble de votre stock.`}

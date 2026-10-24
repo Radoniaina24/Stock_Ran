@@ -18,7 +18,7 @@ export function MovementsPage() {
   const initialProductId = searchParams.get('produit') ?? ''
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div className="w-full">
       <PageHeader
         title="Mouvements de stock"
         description="Enregistrez les entrées, sorties et ajustements. Chaque opération met à jour le stock instantanément et reste tracée dans l’historique."

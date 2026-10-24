@@ -431,7 +431,7 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div className="w-full">
       <PageHeader
         title="Produits"
         description="Gérez votre catalogue, suivez les niveaux de stock et les seuils d’alerte."

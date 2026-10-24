@@ -376,7 +376,7 @@ export function HistoryPage() {
   ]
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div className="w-full">
       <PageHeader
         title="Historique des mouvements"
         description="Retrouvez chaque entrée, sortie et ajustement avec l’état du stock avant et après."
