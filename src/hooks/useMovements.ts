@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -8,8 +9,10 @@ import { useAuth } from './useAuth'
 import { invalidateStockQueries } from './stockQueries'
 import type { MovementFilters, StockMovement } from '../types/database'
 import {
+  countMovementsByType,
   fetchMovementsForExport,
   listMovements,
+  type MovementCounts,
   listRecentMovements,
   recordStockAdjustment,
   recordStockEntry,
@@ -28,7 +31,22 @@ export function useMovements(
   return useQuery({
     queryKey: ['movements', userId, filters, page, pageSize],
     enabled: Boolean(userId),
+    placeholderData: keepPreviousData,
     queryFn: () => listMovements(userId, filters, { page, pageSize }),
+  })
+}
+
+/** Compteurs par type pour les filtres donnés (le filtre de type est ignoré). */
+export function useMovementCounts(filters: MovementFilters): UseQueryResult<MovementCounts> {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+  const criteria = { ...filters, type: 'all' as const }
+
+  return useQuery({
+    queryKey: ['movements', userId, 'counts', criteria],
+    enabled: Boolean(userId),
+    placeholderData: keepPreviousData,
+    queryFn: () => countMovementsByType(userId, criteria),
   })
 }
 

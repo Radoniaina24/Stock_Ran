@@ -94,7 +94,7 @@ function ProductMovements({ product }: { product: Product }) {
         ) : null}
       </div>
 
-      {movements.isLoading ? (
+      {movements.isLoading || movements.isPlaceholderData ? (
         <SkeletonGroup label="Chargement des mouvements…" className="divide-y divide-border">
           {Array.from({ length: 3 }, (_, i) => (
             <div key={i} className="flex items-center gap-3 py-2.5">
@@ -231,11 +231,11 @@ export function ProductDetailsDialog({ product, onClose, onEdit, onMovement }: P
           <ProductMovements product={product} />
 
           <Link
-            to="/historique"
+            to={`/historique?produit=${product.id}`}
             onClick={onClose}
             className="group inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
           >
-            Voir tout l’historique
+            Voir tout l’historique du produit
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </Link>
         </div>
