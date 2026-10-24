@@ -69,6 +69,7 @@ export interface DashboardStats {
   activeProducts: number
   totalQuantity: number
   lowStockProducts: number
+  outOfStockProducts: number
   entriesToday: number
   exitsToday: number
 }

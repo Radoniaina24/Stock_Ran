@@ -1,122 +1,180 @@
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, Package, RefreshCw, TriangleAlert } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Boxes,
+  Package,
+  Plus,
+  RefreshCw,
+  TriangleAlert,
+} from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/button'
-import { Card, CardContent } from '../components/ui/card'
-import { ErrorState, TableSkeleton } from '../components/ui/states'
+import { Card } from '../components/ui/card'
+import { SkeletonGroup } from '../components/ui/skeleton'
+import { ErrorState } from '../components/ui/states'
+import { ActivityChart, ActivityChartSkeleton } from '../components/dashboard/ActivityChart'
+import { StatCard, StatCardSkeleton } from '../components/dashboard/StatCard'
+import { StockAlertsCard, StockAlertsSkeleton } from '../components/dashboard/StockAlertsCard'
 import { RecentMovementsCard } from '../components/stock/RecentMovementsCard'
 import { useDashboard } from '../hooks/useDashboard'
+import { ACTIVITY_DAYS } from '../services/dashboard'
 import { supabaseErrorMessage } from '../lib/supabase'
-import { formatQuantity } from '../lib/utils'
+import { cn } from '../lib/utils'
 
-interface StatCardProps {
-  label: string
-  value: string
-  hint: string
-  icon: LucideIcon
-  tone?: 'default' | 'success' | 'danger' | 'warning'
+const numberFormat = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 })
+const todayFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full' })
+const timeFormat = new Intl.DateTimeFormat('fr-FR', { timeStyle: 'short' })
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-const TONES = {
-  default: 'bg-primary-soft text-primary',
-  success: 'bg-success-soft text-success',
-  danger: 'bg-danger-soft text-danger',
-  warning: 'bg-warning-soft text-warning',
-} as const
-
-const TONE_TEXT = {
-  default: 'text-foreground',
-  success: 'text-success',
-  danger: 'text-danger',
-  warning: 'text-warning',
-} as const
-
-function StatCard({ label, value, hint, icon: Icon, tone = 'default' }: StatCardProps) {
+function DashboardSkeleton() {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <span className={`flex size-7 shrink-0 items-center justify-center rounded-md ${TONES[tone]}`}>
-            <Icon className="size-4" />
-          </span>
+    <SkeletonGroup label="Chargement du tableau de bord…" className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <StatCardSkeleton key={i} />
+        ))}
+      </div>
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ActivityChartSkeleton />
         </div>
-        <p className={`mt-3 text-2xl font-semibold tabular-nums ${TONE_TEXT[tone]}`}>{value}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-      </CardContent>
-    </Card>
+        <StockAlertsSkeleton />
+      </div>
+    </SkeletonGroup>
   )
 }
 
 export function DashboardPage() {
   const dashboard = useDashboard()
-  const stats = dashboard.data?.stats
+  const navigate = useNavigate()
+  const [today] = useState(() => capitalize(todayFormat.format(new Date())))
+  const data = dashboard.data
+  const stats = data?.stats
+  const isRefreshing = dashboard.isFetching && !dashboard.isLoading
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-7xl">
       <PageHeader
         title="Tableau de bord"
-        description="Vue d’ensemble de votre stock et des derniers mouvements."
+        description={`${today} · Vue d’ensemble de votre stock.`}
         actions={
-          <Button
-            variant="outline"
-            onClick={() => void dashboard.refetch()}
-            disabled={dashboard.isFetching}
-          >
-            <RefreshCw className={dashboard.isFetching ? 'size-4 animate-spin' : 'size-4'} />
-            Actualiser
-          </Button>
+          <>
+            {dashboard.dataUpdatedAt ? (
+              <span className="hidden text-xs text-muted-foreground lg:inline" aria-live="polite">
+                {isRefreshing
+                  ? 'Mise à jour…'
+                  : `Mis à jour à ${timeFormat.format(dashboard.dataUpdatedAt)}`}
+              </span>
+            ) : null}
+            <Button
+              variant="outline"
+              onClick={() => void dashboard.refetch()}
+              disabled={dashboard.isFetching}
+              aria-label="Actualiser le tableau de bord"
+            >
+              <RefreshCw className={cn('size-4', dashboard.isFetching && 'animate-spin')} />
+              <span className="hidden sm:inline">Actualiser</span>
+            </Button>
+            <Button onClick={() => navigate('/mouvements')} className="flex-1 sm:flex-none">
+              <Plus className="size-4" />
+              Nouveau mouvement
+            </Button>
+          </>
         }
       />
 
       {dashboard.isLoading ? (
-        <TableSkeleton rows={3} columns={5} />
+        <DashboardSkeleton />
       ) : dashboard.isError ? (
-        <ErrorState
-          message={supabaseErrorMessage(dashboard.error)}
-          onRetry={() => void dashboard.refetch()}
-        />
-      ) : stats ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <StatCard
-            label="Produits actifs"
-            value={String(stats.activeProducts)}
-            hint="Produits non archivés"
-            icon={Package}
+        <Card className="rounded-xl">
+          <ErrorState
+            message={supabaseErrorMessage(dashboard.error)}
+            onRetry={() => void dashboard.refetch()}
           />
-          <StatCard
-            label="Quantité totale en stock"
-            value={formatQuantity(stats.totalQuantity)}
-            hint="Somme des quantités disponibles"
-            icon={Boxes}
-          />
-          <StatCard
-            label="Produits en stock faible"
-            value={String(stats.lowStockProducts)}
-            hint="Quantité ≤ seuil d’alerte"
-            icon={TriangleAlert}
-            tone={stats.lowStockProducts > 0 ? 'warning' : 'default'}
-          />
-          <StatCard
-            label="Entrées aujourd’hui"
-            value={String(stats.entriesToday)}
-            hint="Mouvements d’entrée du jour"
-            icon={ArrowDownToLine}
-            tone="success"
-          />
-          <StatCard
-            label="Sorties aujourd’hui"
-            value={String(stats.exitsToday)}
-            hint="Mouvements de sortie du jour"
-            icon={ArrowUpFromLine}
-            tone="danger"
-          />
+        </Card>
+      ) : stats && data ? (
+        <div
+          className={cn(
+            'animate-fade-in space-y-4 transition-opacity sm:space-y-6',
+            isRefreshing && 'opacity-70',
+          )}
+        >
+          <section aria-label="Indicateurs clés" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            <StatCard
+              label="Produits actifs"
+              value={numberFormat.format(stats.activeProducts)}
+              icon={Package}
+              tone="primary"
+              to="/produits"
+              footer="Références non archivées"
+            />
+            <StatCard
+              label="Quantité en stock"
+              value={numberFormat.format(stats.totalQuantity)}
+              icon={Boxes}
+              tone="violet"
+              to="/produits"
+              footer="Toutes références confondues"
+            />
+            <StatCard
+              label="Alertes de stock"
+              value={numberFormat.format(stats.lowStockProducts)}
+              icon={TriangleAlert}
+              tone={stats.outOfStockProducts > 0 ? 'danger' : stats.lowStockProducts > 0 ? 'warning' : 'success'}
+              to="/produits?stock=faible"
+              footer={
+                stats.outOfStockProducts > 0 ? (
+                  <span className="font-medium text-danger">
+                    dont {stats.outOfStockProducts} en rupture
+                  </span>
+                ) : stats.lowStockProducts > 0 ? (
+                  'Sous le seuil d’alerte'
+                ) : (
+                  <span className="text-success">Aucune alerte</span>
+                )
+              }
+            />
+            <StatCard
+              label="Mouvements du jour"
+              value={numberFormat.format(stats.entriesToday + stats.exitsToday)}
+              icon={ArrowLeftRight}
+              tone="primary"
+              to="/historique"
+              footer={
+                <>
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-success-soft px-1.5 py-0.5 font-medium text-success">
+                    <ArrowDownLeft className="size-3" aria-hidden="true" />
+                    {stats.entriesToday}
+                    <span className="sr-only"> entrées</span>
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-danger-soft px-1.5 py-0.5 font-medium text-danger">
+                    <ArrowUpRight className="size-3" aria-hidden="true" />
+                    {stats.exitsToday}
+                    <span className="sr-only"> sorties</span>
+                  </span>
+                </>
+              }
+            />
+          </section>
+
+          <section aria-label="Activité et alertes" className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <ActivityChart data={data.activity} days={ACTIVITY_DAYS} />
+            </div>
+            <StockAlertsCard alerts={data.alerts} total={stats.lowStockProducts} />
+          </section>
         </div>
       ) : null}
 
-      <div className="mt-4">
+      <div className="mt-4 sm:mt-6">
         <RecentMovementsCard limit={6} />
       </div>
-    </>
+    </div>
   )
 }

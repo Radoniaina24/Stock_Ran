@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { createColumnHelper, type OnChangeFn, type SortingState } from '@tanstack/react-table'
 import { Eye, Pencil, Plus, Trash2, Archive, ArchiveRestore } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
@@ -153,11 +154,13 @@ function buildProductColumns(actions: ProductActions) {
 
 export function ProductsPage() {
   const toast = useToast()
+  const [searchParams] = useSearchParams()
+  const lowStockLink = searchParams.get('stock') === 'faible'
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
-  const [status, setStatus] = useState<StatusFilter>('all')
-  const [lowStockOnly, setLowStockOnly] = useState(false)
+  const [status, setStatus] = useState<StatusFilter>(lowStockLink ? 'active' : 'all')
+  const [lowStockOnly, setLowStockOnly] = useState(lowStockLink)
   const [sort, setSort] = useState<ProductSortKey>('created_at')
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)

@@ -1,18 +1,30 @@
 import { supabase } from '../lib/supabase'
+import {
+  activityStartIso,
+  buildDailyActivity,
+  pickStockAlerts,
+  type DailyActivity,
+  type StockAlert,
+} from '../lib/dashboard'
 import { endOfTodayIso, startOfTodayIso } from '../lib/utils'
-import type { DashboardStats, StockMovement } from '../types/database'
-import { listRecentMovements } from './movements'
+import type { DashboardStats } from '../types/database'
+
+export const ACTIVITY_DAYS = 7
+const MAX_ALERTS = 5
 
 export interface DashboardData {
   stats: DashboardStats
-  recent: StockMovement[]
+  alerts: StockAlert[]
+  activity: DailyActivity[]
 }
 
 export async function fetchDashboard(userId: string): Promise<DashboardData> {
-  const [activeResult, entriesResult, exitsResult, recent] = await Promise.all([
+  const [activeResult, entriesResult, exitsResult, activityResult] = await Promise.all([
     supabase
       .from('products')
-      .select('quantity, stock_status', { count: 'exact' })
+      .select('id, reference, name, unit, quantity, low_stock_threshold, stock_status', {
+        count: 'exact',
+      })
       .eq('user_id', userId)
       .eq('is_active', true),
     supabase
@@ -29,22 +41,35 @@ export async function fetchDashboard(userId: string): Promise<DashboardData> {
       .eq('type', 'exit')
       .gte('created_at', startOfTodayIso())
       .lte('created_at', endOfTodayIso()),
-    listRecentMovements(userId, 8),
+    supabase
+      .from('stock_movements')
+      .select('type, created_at')
+      .eq('user_id', userId)
+      .in('type', ['entry', 'exit'])
+      .gte('created_at', activityStartIso(ACTIVITY_DAYS))
+      .order('created_at', { ascending: false })
+      .limit(1000),
   ])
 
   if (activeResult.error) throw activeResult.error
   if (entriesResult.error) throw entriesResult.error
   if (exitsResult.error) throw exitsResult.error
+  if (activityResult.error) throw activityResult.error
 
-  const rows = (activeResult.data ?? []) as { quantity: number; stock_status: string }[]
+  const rows = (activeResult.data ?? []) as Parameters<typeof pickStockAlerts>[0]
 
   const stats: DashboardStats = {
     activeProducts: activeResult.count ?? rows.length,
     totalQuantity: rows.reduce((sum, row) => sum + Number(row.quantity ?? 0), 0),
     lowStockProducts: rows.filter((row) => row.stock_status !== 'ok').length,
+    outOfStockProducts: rows.filter((row) => row.stock_status === 'out').length,
     entriesToday: entriesResult.count ?? 0,
     exitsToday: exitsResult.count ?? 0,
   }
 
-  return { stats, recent }
+  return {
+    stats,
+    alerts: pickStockAlerts(rows, MAX_ALERTS),
+    activity: buildDailyActivity(activityResult.data ?? [], ACTIVITY_DAYS),
+  }
 }
