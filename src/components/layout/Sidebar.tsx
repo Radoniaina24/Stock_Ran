@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Boxes, LogOut } from 'lucide-react'
 import { NAV_ITEMS } from './nav'
-import { cn } from '../../lib/utils'
+import { cn, getInitials } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 import { usePreferences } from '../../hooks/usePreferences'
 
@@ -70,14 +70,6 @@ export function Brand() {
   )
 }
 
-function getInitials(email: string) {
-  const name = email.split('@')[0] ?? ''
-  const parts = name.split(/[._-]/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
-  return (parts[0]![0] + parts[1]![0]).toUpperCase()
-}
-
 export function SidebarFooter() {
   const { user, signOut } = useAuth()
   const email = user?.email ?? '—'
@@ -96,7 +88,7 @@ export function SidebarFooter() {
       <button
         type="button"
         onClick={() => void signOut()}
-        className="group mt-1 flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground outline-none transition-colors duration-200 hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40"
+        className="group mt-1 flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground outline-none transition-colors duration-200 hover:bg-danger-soft hover:text-danger focus-visible:ring-2 focus-visible:ring-danger/40"
       >
         <LogOut className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
         Se déconnecter

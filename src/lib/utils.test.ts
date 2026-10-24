@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatQuantity, toDateInputValue } from './utils'
+import { formatDate, formatQuantity, getInitials, toDateInputValue } from './utils'
+
+describe('getInitials', () => {
+  it('déduit les initiales de la partie locale de l’e-mail', () => {
+    expect(getInitials('jean.dupont@exemple.fr')).toBe('JD')
+    expect(getInitials('gestion@exemple.fr')).toBe('GE')
+    expect(getInitials('@exemple.fr')).toBe('?')
+  })
+})
 
 describe('formatQuantity', () => {
   it('affiche les entiers sans décimale', () => {

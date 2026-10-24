@@ -17,7 +17,7 @@ export interface Preferences {
 
 const STORAGE_KEY = 'ran-stock-preferences'
 
-const DEFAULT_PREFERENCES: Preferences = {
+export const DEFAULT_PREFERENCES: Preferences = {
   appName: 'Gestion de stock',
   density: 'comfortable',
 }

@@ -45,6 +45,15 @@ export function toDateInputValue(value: string | Date): string {
   return new Date(d.getTime() - offset * 60_000).toISOString().slice(0, 10)
 }
 
+/** Initiales affichées dans l'avatar, déduites de la partie locale de l'e-mail. */
+export function getInitials(email: string): string {
+  const name = email.split('@')[0] ?? ''
+  const parts = name.split(/[._-]/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
+  return (parts[0]![0]! + parts[1]![0]!).toUpperCase()
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
