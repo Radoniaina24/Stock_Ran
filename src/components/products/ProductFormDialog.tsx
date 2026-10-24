@@ -1,19 +1,36 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useId, useState, type ReactNode } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { Info, Loader2, PackagePlus, Pencil } from 'lucide-react'
 import type { Product } from '../../types/database'
 import { PRODUCT_UNITS } from '../../types/database'
 import { PRODUCT_DEFAULT_VALUES, productSchema, type ProductFormPayload, type ProductFormValues } from '../../schemas/product'
-import { useProductMutations } from '../../hooks/useProducts'
+import { useCategories, useProductMutations } from '../../hooks/useProducts'
 import { supabaseErrorMessage } from '../../lib/supabase'
+import { getProductStatus } from '../../lib/stock'
+import { formatQuantity } from '../../lib/utils'
 import { useToast } from '../ui/toast'
-import { Modal } from '../ui/dialog'
+import { Modal, ModalIcon } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { Textarea } from '../ui/textarea'
 import { Select } from '../ui/select'
+import { StockBadge } from './StatusBadge'
+
+const DESCRIPTION_MAX = 500
+
+function FormSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <fieldset className="space-y-4">
+      <div>
+        <legend className="text-sm font-semibold text-foreground">{title}</legend>
+        {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+      </div>
+      {children}
+    </fieldset>
+  )
+}
 
 export interface ProductFormDialogProps {
   product: Product | null
@@ -22,7 +39,10 @@ export interface ProductFormDialogProps {
 
 export function ProductFormDialog({ product, onClose }: ProductFormDialogProps) {
   const toast = useToast()
+  const formId = useId()
+  const categoriesListId = useId()
   const { create, update } = useProductMutations()
+  const categories = useCategories()
   const [serverError, setServerError] = useState<string | null>(null)
 
   const defaultValues: ProductFormValues = product
@@ -41,6 +61,10 @@ export function ProductFormDialog({ product, onClose }: ProductFormDialogProps) 
     defaultValues,
   })
 
+  const { errors } = form.formState
+  const unit = useWatch({ control: form.control, name: 'unit' })
+  const descriptionLength = (useWatch({ control: form.control, name: 'description' }) ?? '').length
+
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(null)
     try {
@@ -55,8 +79,7 @@ export function ProductFormDialog({ product, onClose }: ProductFormDialogProps) 
     } catch (error) {
       const message = supabaseErrorMessage(error)
       if (message.toLowerCase().includes('référence est déjà utilisée')) {
-        form.setError('reference', { type: 'server', message })
-        setServerError(message)
+        form.setError('reference', { type: 'server', message }, { shouldFocus: true })
       } else {
         setServerError(message)
       }
@@ -68,125 +91,156 @@ export function ProductFormDialog({ product, onClose }: ProductFormDialogProps) 
   return (
     <Modal
       open
+      size="lg"
       onClose={isPending ? () => undefined : onClose}
       title={product ? 'Modifier le produit' : 'Ajouter un produit'}
+      icon={
+        <ModalIcon>
+          {product ? <Pencil className="size-5" /> : <PackagePlus className="size-5" />}
+        </ModalIcon>
+      }
       description={
         product
-          ? 'La quantité ne se modifie pas ici : elle évolue uniquement par les entrées et sorties.'
-          : 'Le produit est créé avec une quantité initiale de zéro.'
+          ? `Mettez à jour les informations de « ${product.name} ».`
+          : 'Renseignez les informations du nouveau produit.'
       }
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={isPending}>
             Annuler
           </Button>
-          <Button onClick={() => void onSubmit()} disabled={isPending}>
+          <Button type="submit" form={formId} disabled={isPending}>
             {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-            {product ? 'Enregistrer' : 'Ajouter'}
+            {product ? 'Enregistrer les modifications' : 'Ajouter le produit'}
           </Button>
         </>
       }
     >
-      <form onSubmit={(event) => void onSubmit(event)} noValidate className="space-y-4">
+      <form id={formId} onSubmit={(event) => void onSubmit(event)} noValidate className="space-y-6">
         {serverError ? (
-          <p role="alert" className="rounded-md border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
+          <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft p-3 text-sm text-danger">
             {serverError}
           </p>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        {product ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 p-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Stock actuel</p>
+              <p className="text-lg font-semibold text-foreground tabular-nums">
+                {formatQuantity(product.quantity)}
+                <span className="ms-1 text-sm font-normal text-muted-foreground">{product.unit}</span>
+              </p>
+            </div>
+            <StockBadge status={getProductStatus(product)} />
+            <p className="flex w-full items-start gap-2 text-xs text-muted-foreground">
+              <Info className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+              La quantité évolue uniquement via les entrées, sorties et ajustements de stock.
+            </p>
+          </div>
+        ) : null}
+
+        <FormSection title="Identification" description="Comment le produit est reconnu dans votre stock.">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <FormField label="Référence" htmlFor="product-reference" required error={errors.reference?.message}>
+              <Input
+                id="product-reference"
+                placeholder="PRD-001"
+                maxLength={40}
+                autoComplete="off"
+                className="font-mono"
+                aria-invalid={Boolean(errors.reference)}
+                {...form.register('reference')}
+              />
+            </FormField>
+
+            <FormField label="Nom du produit" htmlFor="product-name" required error={errors.name?.message}>
+              <Input
+                id="product-name"
+                placeholder="Ex. Ramette papier A4"
+                maxLength={120}
+                aria-invalid={Boolean(errors.name)}
+                {...form.register('name')}
+              />
+            </FormField>
+          </div>
+        </FormSection>
+
+        <div className="border-t border-border" />
+
+        <FormSection title="Classement et stock" description="Utilisés pour filtrer et déclencher les alertes.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              label="Catégorie"
+              htmlFor="product-category"
+              error={errors.category?.message}
+              hint="Facultatif — choisissez une catégorie existante ou créez-en une."
+            >
+              <Input
+                id="product-category"
+                placeholder="Ex. Fournitures"
+                maxLength={60}
+                list={categoriesListId}
+                autoComplete="off"
+                {...form.register('category')}
+              />
+              <datalist id={categoriesListId}>
+                {(categories.data ?? []).map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
+            </FormField>
+
+            <FormField label="Unité de mesure" htmlFor="product-unit" required error={errors.unit?.message}>
+              <Select id="product-unit" {...form.register('unit')}>
+                {PRODUCT_UNITS.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          </div>
+
           <FormField
-            label="Référence"
-            htmlFor="product-reference"
+            label="Seuil d’alerte"
+            htmlFor="product-threshold"
             required
-            error={form.formState.errors.reference?.message}
+            error={errors.low_stock_threshold?.message}
+            hint="Sous ce niveau, le produit passe en « Stock faible »."
           >
-            <Input
-              id="product-reference"
-              placeholder="PRD-001"
-              maxLength={40}
-              {...form.register('reference')}
+            <div className="relative sm:max-w-56">
+              <Input
+                id="product-threshold"
+                inputMode="decimal"
+                placeholder="0"
+                className="pe-20 tabular-nums"
+                aria-invalid={Boolean(errors.low_stock_threshold)}
+                {...form.register('low_stock_threshold')}
+              />
+              <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-muted-foreground">
+                {unit}
+              </span>
+            </div>
+          </FormField>
+        </FormSection>
+
+        <div className="border-t border-border" />
+
+        <FormSection title="Description">
+          <FormField label="Informations complémentaires" htmlFor="product-description" error={errors.description?.message}>
+            <Textarea
+              id="product-description"
+              placeholder="Fournisseur, emplacement, conditionnement…"
+              maxLength={DESCRIPTION_MAX}
+              rows={3}
+              {...form.register('description')}
             />
+            <p className="text-end text-xs text-muted-foreground tabular-nums">
+              {descriptionLength} / {DESCRIPTION_MAX}
+            </p>
           </FormField>
-
-          <FormField
-            label="Nom du produit"
-            htmlFor="product-name"
-            required
-            error={form.formState.errors.name?.message}
-          >
-            <Input
-              id="product-name"
-              placeholder="Nom du produit"
-              maxLength={120}
-              {...form.register('name')}
-            />
-          </FormField>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            label="Catégorie"
-            htmlFor="product-category"
-            error={form.formState.errors.category?.message}
-            hint="Facultatif"
-          >
-            <Input
-              id="product-category"
-              placeholder="Ex. Fournitures"
-              maxLength={60}
-              {...form.register('category')}
-            />
-          </FormField>
-
-          <FormField
-            label="Unité de mesure"
-            htmlFor="product-unit"
-            required
-            error={form.formState.errors.unit?.message}
-          >
-            <Select id="product-unit" {...form.register('unit')}>
-              {PRODUCT_UNITS.map((unit) => (
-                <option key={unit} value={unit}>
-                  {unit}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-        </div>
-
-        <FormField
-          label="Seuil d'alerte"
-          htmlFor="product-threshold"
-          required
-          error={form.formState.errors.low_stock_threshold?.message}
-          hint="Le passage sous ce seuil déclenche le badge « Stock faible »."
-        >
-          <Input
-            id="product-threshold"
-            inputMode="decimal"
-            placeholder="0"
-            className="max-w-40"
-            {...form.register('low_stock_threshold')}
-          />
-        </FormField>
-
-        <FormField
-          label="Description"
-          htmlFor="product-description"
-          error={form.formState.errors.description?.message}
-          hint="Facultatif"
-        >
-          <Textarea
-            id="product-description"
-            placeholder="Informations complémentaires…"
-            maxLength={500}
-            rows={3}
-            {...form.register('description')}
-          />
-        </FormField>
-
-        <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1} />
+        </FormSection>
       </form>
     </Modal>
   )

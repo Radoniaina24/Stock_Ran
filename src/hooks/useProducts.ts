@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -29,6 +30,7 @@ export function useProducts(filters: ProductFilters): UseQueryResult<{
   return useQuery({
     queryKey: ['products', userId, filters],
     enabled: Boolean(userId),
+    placeholderData: keepPreviousData,
     queryFn: () => listProducts(userId, filters),
   })
 }

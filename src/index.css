@@ -33,6 +33,28 @@
 
   --animate-shimmer: shimmer 1.6s ease-in-out infinite;
   --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-overlay-in: overlay-in 0.2s ease-out both;
+  --animate-sheet-in: sheet-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+  --animate-dialog-in: dialog-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes overlay-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+    }
+  }
 
   @keyframes shimmer {
     100% {

@@ -18,6 +18,8 @@ export interface DataTableProps<TData extends RowData> {
   /** Tri contrôlé : effectué côté serveur, la table n'applique aucun tri local. */
   sorting?: SortingState
   onSortingChange?: OnChangeFn<SortingState>
+  /** Clic sur une ligne (souris uniquement : prévoir une action accessible au clavier). */
+  onRowClick?: (row: TData) => void
 }
 
 export function DataTable<TData extends RowData>({
@@ -26,6 +28,7 @@ export function DataTable<TData extends RowData>({
   getRowId,
   sorting = NO_SORTING,
   onSortingChange,
+  onRowClick,
 }: DataTableProps<TData>) {
   const sortable = Boolean(onSortingChange)
 
@@ -88,7 +91,11 @@ export function DataTable<TData extends RowData>({
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id}>
+          <TableRow
+            key={row.id}
+            className={onRowClick ? 'cursor-pointer' : undefined}
+            onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+          >
             {row.getAllCells().map((cell) => (
               <TableCell key={cell.id} className={cell.column.columnDef.meta?.cellClassName}>
                 <table.FlexRender cell={cell} />

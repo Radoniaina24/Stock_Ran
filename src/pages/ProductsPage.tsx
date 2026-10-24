@@ -1,25 +1,28 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type MouseEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createColumnHelper, type OnChangeFn, type SortingState } from '@tanstack/react-table'
-import { Eye, Pencil, Plus, Trash2, Archive, ArchiveRestore } from 'lucide-react'
+import { Archive, ArchiveRestore, Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
+import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { Card, CardContent } from '../components/ui/card'
-import { Checkbox } from '../components/ui/checkbox'
+import { Card } from '../components/ui/card'
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
 import { DataTable } from '../components/ui/data-table'
 import type { DataTableFeatures } from '../components/ui/data-table-features'
-import { EmptyState, ErrorState, TableSkeleton } from '../components/ui/states'
+import { EmptyState, ErrorState } from '../components/ui/states'
 import { Pagination } from '../components/ui/pagination'
 import { SearchInput } from '../components/ui/search-input'
 import { Select } from '../components/ui/select'
+import { Skeleton, SkeletonGroup } from '../components/ui/skeleton'
 import { useToast } from '../components/ui/toast'
 import { ActiveBadge, StockBadge } from '../components/products/StatusBadge'
+import { ProductAvatar, StockLevelBar } from '../components/products/ProductVisuals'
 import { ProductDetailsDialog } from '../components/products/ProductDetailsDialog'
 import { ProductFormDialog } from '../components/products/ProductFormDialog'
 import { useCategories, useProductMutations, useProducts } from '../hooks/useProducts'
 import { useDebounce } from '../hooks/useDebounce'
-import { formatQuantity } from '../lib/utils'
+import { getProductStatus } from '../lib/stock'
+import { cn, formatQuantity } from '../lib/utils'
 import { supabaseErrorMessage } from '../lib/supabase'
 import {
   EMPTY_PRODUCT_FILTERS,
@@ -28,7 +31,24 @@ import {
   type ProductSortKey,
 } from '../types/database'
 
-type StatusFilter = ProductFilters['status']
+type View = 'all' | 'active' | 'low' | 'archived'
+
+const VIEWS: { value: View; label: string }[] = [
+  { value: 'all', label: 'Tous' },
+  { value: 'active', label: 'Actifs' },
+  { value: 'low', label: 'Stock faible' },
+  { value: 'archived', label: 'Archivés' },
+]
+
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'created_at:desc', label: 'Plus récents' },
+  { value: 'created_at:asc', label: 'Plus anciens' },
+  { value: 'name:asc', label: 'Nom (A → Z)' },
+  { value: 'name:desc', label: 'Nom (Z → A)' },
+  { value: 'reference:asc', label: 'Référence' },
+  { value: 'quantity:asc', label: 'Quantité croissante' },
+  { value: 'quantity:desc', label: 'Quantité décroissante' },
+]
 
 interface ProductActions {
   onView: (product: Product) => void
@@ -40,127 +60,249 @@ interface ProductActions {
 const NO_PRODUCTS: Product[] = []
 const column = createColumnHelper<DataTableFeatures, Product>()
 
+const stopPropagation = (event: MouseEvent) => event.stopPropagation()
+
+function ProductStatus({ product }: { product: Product }) {
+  return product.is_active ? (
+    <StockBadge status={getProductStatus(product)} />
+  ) : (
+    <ActiveBadge isActive={false} />
+  )
+}
+
+function RowActions({ product, actions, withDetails = true }: { product: Product; actions: ProductActions; withDetails?: boolean }) {
+  return (
+    <div className="flex items-center justify-end gap-0.5" onClick={stopPropagation}>
+      {withDetails ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          title="Voir les détails"
+          aria-label={`Voir les détails de ${product.name}`}
+          onClick={() => actions.onView(product)}
+        >
+          <Eye className="size-4" />
+        </Button>
+      ) : null}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        title="Modifier"
+        aria-label={`Modifier ${product.name}`}
+        disabled={!product.is_active}
+        onClick={() => actions.onEdit(product)}
+      >
+        <Pencil className="size-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        title={product.is_active ? 'Archiver' : 'Réactiver'}
+        aria-label={product.is_active ? `Archiver ${product.name}` : `Réactiver ${product.name}`}
+        onClick={() => actions.onArchive(product)}
+      >
+        {product.is_active ? <Archive className="size-4" /> : <ArchiveRestore className="size-4" />}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 text-danger hover:bg-danger-soft hover:text-danger"
+        title="Supprimer"
+        aria-label={`Supprimer ${product.name}`}
+        disabled={!product.is_active}
+        onClick={() => actions.onDelete(product)}
+      >
+        <Trash2 className="size-4" />
+      </Button>
+    </div>
+  )
+}
+
 function buildProductColumns(actions: ProductActions) {
   return column.columns([
-    column.accessor('reference', {
-      header: 'Référence',
-      meta: { cellClassName: 'font-mono text-xs' },
-    }),
     column.accessor('name', {
-      header: 'Nom',
-      meta: { cellClassName: 'font-medium' },
+      header: 'Produit',
+      cell: ({ row }) => {
+        const product = row.original
+        return (
+          <div className="flex min-w-0 items-center gap-3">
+            <ProductAvatar status={getProductStatus(product)} archived={!product.is_active} />
+            <div className="min-w-0">
+              <p className="max-w-64 truncate font-medium text-foreground" title={product.name}>
+                {product.name}
+              </p>
+              <p className="font-mono text-xs text-muted-foreground">{product.reference}</p>
+            </div>
+          </div>
+        )
+      },
     }),
     column.accessor('category', {
       header: 'Catégorie',
-      cell: (info) => info.getValue() || '—',
-      meta: { cellClassName: 'text-muted-foreground' },
+      cell: (info) =>
+        info.getValue() ? (
+          <Badge variant="neutral" className="max-w-40 truncate font-normal">
+            {info.getValue()}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
     }),
     column.accessor('quantity', {
-      header: 'Quantité',
-      cell: (info) => formatQuantity(info.getValue()),
-      meta: { cellClassName: 'font-medium' },
+      header: 'Stock',
+      cell: ({ row }) => {
+        const product = row.original
+        return (
+          <div className="w-32">
+            <p className="text-sm tabular-nums">
+              <span className="font-semibold text-foreground">{formatQuantity(product.quantity)}</span>
+              <span className="ms-1 text-xs text-muted-foreground">{product.unit}</span>
+            </p>
+            <StockLevelBar
+              className="mt-1.5"
+              quantity={product.quantity}
+              threshold={product.low_stock_threshold}
+              status={getProductStatus(product)}
+              muted={!product.is_active}
+            />
+          </div>
+        )
+      },
     }),
     column.accessor('low_stock_threshold', {
       header: 'Seuil',
       cell: (info) => formatQuantity(info.getValue()),
-      meta: { cellClassName: 'text-muted-foreground' },
-    }),
-    column.accessor('unit', {
-      header: 'Unité',
-      enableSorting: false,
-      meta: { cellClassName: 'text-muted-foreground' },
+      meta: {
+        headerClassName: 'hidden xl:table-cell',
+        cellClassName: 'hidden text-muted-foreground tabular-nums xl:table-cell',
+      },
     }),
     column.display({
       id: 'status',
       header: 'Statut',
-      cell: ({ row }) => {
-        const product = row.original
-        return (
-          <div className="flex flex-wrap gap-1.5">
-            {product.is_active ? (
-              <StockBadge
-                status={
-                  product.quantity <= 0
-                    ? 'out'
-                    : product.quantity <= product.low_stock_threshold
-                      ? 'low'
-                      : 'ok'
-                }
-              />
-            ) : (
-              <ActiveBadge isActive={false} />
-            )}
-          </div>
-        )
-      },
+      cell: ({ row }) => <ProductStatus product={row.original} />,
     }),
     column.display({
       id: 'actions',
-      header: 'Actions',
-      meta: { headerClassName: 'text-end' },
-      cell: ({ row }) => {
-        const product = row.original
-        return (
-          <div className="flex justify-end gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Voir les détails"
-              aria-label={`Voir les détails de ${product.name}`}
-              onClick={() => actions.onView(product)}
-            >
-              <Eye className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Modifier"
-              aria-label={`Modifier ${product.name}`}
-              disabled={!product.is_active}
-              onClick={() => actions.onEdit(product)}
-            >
-              <Pencil className="size-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              title={product.is_active ? 'Archiver' : 'Réactiver'}
-              aria-label={product.is_active ? `Archiver ${product.name}` : `Réactiver ${product.name}`}
-              onClick={() => actions.onArchive(product)}
-            >
-              {product.is_active ? (
-                <Archive className="size-4" />
-              ) : (
-                <ArchiveRestore className="size-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Supprimer"
-              aria-label={`Supprimer ${product.name}`}
-              disabled={!product.is_active}
-              className="text-danger hover:bg-danger-soft hover:text-danger"
-              onClick={() => actions.onDelete(product)}
-            >
-              <Trash2 className="size-4" />
-            </Button>
-          </div>
-        )
-      },
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => <RowActions product={row.original} actions={actions} />,
+      meta: { headerClassName: 'w-px', cellClassName: 'py-2' },
     }),
   ])
+}
+
+function ProductCard({ product, actions }: { product: Product; actions: ProductActions }) {
+  const status = getProductStatus(product)
+
+  return (
+    <li className="flex flex-col rounded-xl border border-border bg-card transition-all hover:border-primary/25 hover:shadow-sm">
+      <button
+        type="button"
+        onClick={() => actions.onView(product)}
+        className="flex flex-1 cursor-pointer flex-col gap-3 rounded-t-xl p-4 text-start outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
+        aria-label={`Voir les détails de ${product.name}`}
+      >
+        <div className="flex w-full items-start gap-3">
+          <ProductAvatar status={status} archived={!product.is_active} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              <span className="font-mono">{product.reference}</span>
+              {product.category ? <span> · {product.category}</span> : null}
+            </p>
+          </div>
+          <ProductStatus product={product} />
+        </div>
+
+        <div className="w-full">
+          <div className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
+            <span>
+              <span className="text-base font-semibold text-foreground tabular-nums">
+                {formatQuantity(product.quantity)}
+              </span>{' '}
+              {product.unit}
+            </span>
+            <span className="tabular-nums">Seuil {formatQuantity(product.low_stock_threshold)}</span>
+          </div>
+          <StockLevelBar
+            className="mt-1.5"
+            quantity={product.quantity}
+            threshold={product.low_stock_threshold}
+            status={status}
+            muted={!product.is_active}
+          />
+        </div>
+      </button>
+
+      <div className="flex items-center justify-between gap-2 border-t border-border px-2 py-1.5">
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => actions.onView(product)}>
+          <Eye className="size-3.5" />
+          Détails
+        </Button>
+        <RowActions product={product} actions={actions} withDetails={false} />
+      </div>
+    </li>
+  )
+}
+
+function ProductsSkeleton() {
+  return (
+    <SkeletonGroup label="Chargement des produits…">
+      <ul className="grid gap-3 p-4 sm:grid-cols-2 lg:hidden">
+        {Array.from({ length: 4 }, (_, i) => (
+          <li key={i} className="rounded-xl border border-border p-4">
+            <div className="flex items-start gap-3">
+              <Skeleton className="size-9 rounded-lg" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-3/5" />
+                <Skeleton className="h-3 w-2/5" />
+              </div>
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="mt-4 h-4 w-20" />
+            <Skeleton className="mt-2 h-1.5 w-full rounded-full" />
+          </li>
+        ))}
+      </ul>
+      <div className="hidden lg:block">
+        <div className="flex gap-6 bg-muted/60 px-4 py-3.5">
+          {['w-40', 'w-20', 'w-16', 'w-14'].map((width, i) => (
+            <Skeleton key={i} className={cn('h-3 bg-muted', width, i === 0 && 'me-auto')} />
+          ))}
+        </div>
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="flex items-center gap-6 border-t border-border px-4 py-3">
+            <div className="flex flex-1 items-center gap-3">
+              <Skeleton className="size-9 rounded-lg" />
+              <div className="space-y-1.5">
+                <Skeleton className="h-3.5 w-44" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+            <Skeleton className="h-5 w-20 rounded-full" />
+            <div className="w-32 space-y-1.5">
+              <Skeleton className="h-3.5 w-14" />
+              <Skeleton className="h-1.5 w-full rounded-full" />
+            </div>
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-7 w-28" />
+          </div>
+        ))}
+      </div>
+    </SkeletonGroup>
+  )
 }
 
 export function ProductsPage() {
   const toast = useToast()
   const [searchParams] = useSearchParams()
-  const lowStockLink = searchParams.get('stock') === 'faible'
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
-  const [status, setStatus] = useState<StatusFilter>(lowStockLink ? 'active' : 'all')
-  const [lowStockOnly, setLowStockOnly] = useState(lowStockLink)
+  const [view, setView] = useState<View>(searchParams.get('stock') === 'faible' ? 'low' : 'all')
   const [sort, setSort] = useState<ProductSortKey>('created_at')
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
@@ -178,13 +320,13 @@ export function ProductsPage() {
       ...EMPTY_PRODUCT_FILTERS,
       search: debouncedSearch,
       category,
-      status,
-      lowStockOnly,
+      status: view === 'low' ? 'active' : view,
+      lowStockOnly: view === 'low',
       sort,
       order,
       page,
     }),
-    [debouncedSearch, category, status, lowStockOnly, sort, order, page],
+    [debouncedSearch, category, view, sort, order, page],
   )
 
   const products = useProducts(filters)
@@ -195,38 +337,47 @@ export function ProductsPage() {
   const total = products.data?.total ?? 0
 
   const sorting = useMemo<SortingState>(() => [{ id: sort, desc: order === 'desc' }], [sort, order])
+  const sortValue = `${sort}:${order}`
+
+  const applySort = (key: ProductSortKey, direction: 'asc' | 'desc') => {
+    setSort(key)
+    setOrder(direction)
+    setPage(1)
+  }
 
   const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
     const next = typeof updater === 'function' ? updater(sorting) : updater
     const first = next[0]
     if (!first) return
-    setSort(first.id as ProductSortKey)
-    setOrder(first.desc ? 'desc' : 'asc')
-    setPage(1)
+    applySort(first.id as ProductSortKey, first.desc ? 'desc' : 'asc')
   }
 
-  const columns = useMemo(
-    () =>
-      buildProductColumns({
-        onView: setDetailsProduct,
-        onEdit: (product) => {
-          setFormProduct(product)
-          setFormOpen(true)
-        },
-        onArchive: setArchiving,
-        onDelete: setDeleting,
-      }),
+  const openCreate = () => {
+    setFormProduct(null)
+    setFormOpen(true)
+  }
+
+  const actions = useMemo<ProductActions>(
+    () => ({
+      onView: setDetailsProduct,
+      onEdit: (product) => {
+        setFormProduct(product)
+        setFormOpen(true)
+      },
+      onArchive: setArchiving,
+      onDelete: setDeleting,
+    }),
     [],
   )
 
-  const hasFilters =
-    Boolean(debouncedSearch) || Boolean(category) || status !== 'all' || lowStockOnly
+  const columns = useMemo(() => buildProductColumns(actions), [actions])
+
+  const hasFilters = Boolean(debouncedSearch) || Boolean(category) || view !== 'all'
 
   const resetFilters = () => {
     setSearch('')
     setCategory('')
-    setStatus('all')
-    setLowStockOnly(false)
+    setView('all')
     setPage(1)
   }
 
@@ -256,92 +407,113 @@ export function ProductsPage() {
   }
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-7xl">
       <PageHeader
         title="Produits"
-        description="Catalogue des produits et quantités disponibles."
+        description="Gérez votre catalogue, suivez les niveaux de stock et les seuils d’alerte."
         actions={
-          <Button
-            onClick={() => {
-              setFormProduct(null)
-              setFormOpen(true)
-            }}
-          >
+          <Button onClick={openCreate} className="w-full sm:w-auto">
             <Plus className="size-4" />
             Ajouter un produit
           </Button>
         }
       />
 
-      <Card className="mb-4">
-        <CardContent className="flex flex-wrap items-end gap-3 p-4">
-          <SearchInput
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value)
-              setPage(1)
-            }}
-            onClear={() => {
-              setSearch('')
-              setPage(1)
-            }}
-            placeholder="Rechercher par référence ou nom…"
-            className="min-w-56 flex-1"
-            aria-label="Rechercher un produit"
-          />
-
-          <Select
-            value={category}
-            onChange={(event) => {
-              setCategory(event.target.value)
-              setPage(1)
-            }}
-            aria-label="Filtrer par catégorie"
-            className="w-44"
+      <Card className="overflow-hidden rounded-xl">
+        <div className="space-y-3 border-b border-border p-4">
+          <div
+            role="group"
+            aria-label="Filtrer par état"
+            className="-mx-4 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0"
           >
-            <option value="">Toutes les catégories</option>
-            {(categories.data ?? []).map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </Select>
+            <div className="inline-flex shrink-0 rounded-lg bg-muted p-1">
+              {VIEWS.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={view === item.value}
+                  onClick={() => {
+                    setView(item.value)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    'cursor-pointer whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                    view === item.value
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <Select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value as StatusFilter)
-              setPage(1)
-            }}
-            aria-label="Filtrer par statut"
-            className="w-40"
-          >
-            <option value="all">Tous les statuts</option>
-            <option value="active">Actifs</option>
-            <option value="archived">Archivés</option>
-          </Select>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <SearchInput
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setPage(1)
+              }}
+              onClear={() => {
+                setSearch('')
+                setPage(1)
+              }}
+              placeholder="Rechercher par référence ou nom…"
+              className="sm:min-w-64 sm:flex-1"
+              aria-label="Rechercher un produit"
+            />
 
-          <Checkbox
-            id="low-stock-only"
-            checked={lowStockOnly}
-            onChange={(event) => {
-              setLowStockOnly(event.target.checked)
-              setPage(1)
-            }}
-            label="Stock faible uniquement"
-          />
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <Select
+                value={category}
+                onChange={(event) => {
+                  setCategory(event.target.value)
+                  setPage(1)
+                }}
+                aria-label="Filtrer par catégorie"
+                className="sm:w-48"
+              >
+                <option value="">Toutes catégories</option>
+                {(categories.data ?? []).map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </Select>
 
-          {hasFilters ? (
-            <Button variant="ghost" size="sm" onClick={resetFilters}>
-              Réinitialiser
-            </Button>
-          ) : null}
-        </CardContent>
-      </Card>
+              <Select
+                value={sortValue}
+                onChange={(event) => {
+                  const [key, direction] = event.target.value.split(':')
+                  applySort(key as ProductSortKey, direction as 'asc' | 'desc')
+                }}
+                aria-label="Trier les produits"
+                className="sm:w-48 lg:hidden"
+              >
+                {SORT_OPTIONS.some((option) => option.value === sortValue) ? null : (
+                  <option value={sortValue}>Tri personnalisé</option>
+                )}
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
 
-      <Card>
+            {hasFilters ? (
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="self-start sm:self-auto">
+                <RotateCcw className="size-3.5" />
+                Réinitialiser
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
         {products.isLoading ? (
-          <TableSkeleton rows={6} columns={8} />
+          <ProductsSkeleton />
         ) : products.isError ? (
           <ErrorState
             message={supabaseErrorMessage(products.error)}
@@ -361,15 +533,9 @@ export function ProductsPage() {
           ) : (
             <EmptyState
               title="Aucun produit enregistré."
-              description="Ajoutez votre premier produit pour commencer."
+              description="Ajoutez votre premier produit pour commencer à suivre votre stock."
               action={
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setFormProduct(null)
-                    setFormOpen(true)
-                  }}
-                >
+                <Button size="sm" onClick={openCreate}>
                   <Plus className="size-4" />
                   Ajouter un produit
                 </Button>
@@ -378,13 +544,26 @@ export function ProductsPage() {
           )
         ) : (
           <>
-            <DataTable
-              columns={columns}
-              data={rows}
-              getRowId={(product) => product.id}
-              sorting={sorting}
-              onSortingChange={handleSortingChange}
-            />
+            <div
+              className={cn('transition-opacity', products.isPlaceholderData && 'pointer-events-none opacity-60')}
+              aria-busy={products.isFetching}
+            >
+              <ul className="grid gap-3 p-4 sm:grid-cols-2 lg:hidden">
+                {rows.map((product) => (
+                  <ProductCard key={product.id} product={product} actions={actions} />
+                ))}
+              </ul>
+              <div className="hidden lg:block">
+                <DataTable
+                  columns={columns}
+                  data={rows}
+                  getRowId={(product) => product.id}
+                  sorting={sorting}
+                  onSortingChange={handleSortingChange}
+                  onRowClick={setDetailsProduct}
+                />
+              </div>
+            </div>
 
             <Pagination page={page} pageSize={filters.pageSize} total={total} onPageChange={setPage} />
           </>
@@ -398,19 +577,26 @@ export function ProductsPage() {
       <ProductDetailsDialog
         product={detailsProduct}
         onClose={() => setDetailsProduct(null)}
-        onEdit={(product) => {
-          setFormProduct(product)
-          setFormOpen(true)
-        }}
+        onEdit={actions.onEdit}
       />
 
       <ConfirmDialog
         open={Boolean(archiving)}
-        title={archiving?.is_active ? 'Archiver le produit' : 'Réactiver le produit'}
+        title={archiving?.is_active ? 'Archiver le produit ?' : 'Réactiver le produit ?'}
+        icon={archiving?.is_active ? <Archive className="size-5" /> : <ArchiveRestore className="size-5" />}
         message={
-          archiving?.is_active
-            ? `Le produit « ${archiving?.name} » sera masqué des formulaires de stock. Son historique de mouvements est conservé.`
-            : `Le produit « ${archiving?.name} » redeviendra disponible dans les formulaires de stock.`
+          archiving?.is_active ? (
+            <>
+              <strong className="text-foreground">{archiving?.name}</strong> sera masqué des
+              formulaires de stock. Son historique de mouvements est conservé et vous pourrez le
+              réactiver à tout moment.
+            </>
+          ) : (
+            <>
+              <strong className="text-foreground">{archiving?.name}</strong> redeviendra disponible
+              dans les formulaires de stock.
+            </>
+          )
         }
         confirmLabel={archiving?.is_active ? 'Archiver' : 'Réactiver'}
         destructive={Boolean(archiving?.is_active)}
@@ -421,12 +607,16 @@ export function ProductsPage() {
 
       <ConfirmDialog
         open={Boolean(deleting)}
-        title="Supprimer le produit"
+        title="Supprimer le produit ?"
+        icon={<Trash2 className="size-5" />}
         message={
           <>
-            Supprimer définitivement <strong>{deleting?.name}</strong> ? Cette action est
-            irréversible. Un produit ayant déjà des mouvements ne peut pas être supprimé : il doit
-            être archivé.
+            <strong className="text-foreground">{deleting?.name}</strong> sera supprimé
+            définitivement. Cette action est irréversible.
+            <span className="mt-3 block rounded-lg bg-muted p-3 text-xs">
+              Un produit ayant déjà des mouvements ne peut pas être supprimé : archivez-le pour
+              conserver son historique.
+            </span>
           </>
         }
         confirmLabel="Supprimer"
@@ -435,6 +625,6 @@ export function ProductsPage() {
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleting(null)}
       />
-    </>
+    </div>
   )
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { AlertTriangle } from 'lucide-react'
-import { Modal } from './dialog'
+import { AlertTriangle, Loader2 } from 'lucide-react'
+import { Modal, ModalIcon } from './dialog'
 import { Button } from './button'
 
 export interface ConfirmDialogProps {
@@ -11,6 +11,7 @@ export interface ConfirmDialogProps {
   cancelLabel?: string
   destructive?: boolean
   loading?: boolean
+  icon?: ReactNode
   onConfirm: () => void
   onCancel: () => void
 }
@@ -23,14 +24,21 @@ export function ConfirmDialog({
   cancelLabel = 'Annuler',
   destructive = false,
   loading = false,
+  icon,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   return (
     <Modal
       open={open}
+      size="sm"
       onClose={loading ? () => undefined : onCancel}
       title={title}
+      icon={
+        <ModalIcon tone={destructive ? 'danger' : 'warning'}>
+          {icon ?? <AlertTriangle className="size-5" />}
+        </ModalIcon>
+      }
       footer={
         <>
           <Button variant="outline" onClick={onCancel} disabled={loading}>
@@ -41,23 +49,13 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={loading}
           >
-            {loading ? 'Veuillez patienter…' : confirmLabel}
+            {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+            {confirmLabel}
           </Button>
         </>
       }
     >
-      <div className="flex gap-3">
-        <div
-          className={
-            destructive
-              ? 'flex size-9 shrink-0 items-center justify-center rounded-full bg-danger-soft text-danger'
-              : 'flex size-9 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning'
-          }
-        >
-          <AlertTriangle className="size-5" />
-        </div>
-        <div className="text-sm text-muted-foreground">{message}</div>
-      </div>
+      <div className="text-sm leading-relaxed text-muted-foreground">{message}</div>
     </Modal>
   )
 }

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { getProductStatus, getStockStatus, STOCK_STATUS_LABELS } from './stock'
+import { getProductStatus, getStockLevel, getStockStatus, STOCK_STATUS_LABELS } from './stock'
+
+describe('getStockLevel', () => {
+  it('place le seuil à mi-jauge et plafonne à 100', () => {
+    expect(getStockLevel(5, 10)).toBe(25)
+    expect(getStockLevel(10, 10)).toBe(50)
+    expect(getStockLevel(50, 10)).toBe(100)
+  })
+
+  it('gère un seuil nul et les quantités négatives', () => {
+    expect(getStockLevel(3, 0)).toBe(100)
+    expect(getStockLevel(0, 0)).toBe(0)
+    expect(getStockLevel(-2, 10)).toBe(0)
+  })
+})
 
 describe('getStockStatus', () => {
   it('signale une rupture lorsque la quantité est nulle', () => {
