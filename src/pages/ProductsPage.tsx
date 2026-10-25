@@ -38,6 +38,7 @@ import {
   EMPTY_PRODUCT_FILTERS,
   type Product,
   type ProductFilters,
+  type ProductListItem,
   type ProductSortKey,
 } from '../types/database'
 
@@ -68,8 +69,8 @@ interface ProductActions {
   onDelete: (product: Product) => void
 }
 
-const NO_PRODUCTS: Product[] = []
-const column = createColumnHelper<DataTableFeatures, Product>()
+const NO_PRODUCTS: ProductListItem[] = []
+const column = createColumnHelper<DataTableFeatures, ProductListItem>()
 
 const stopPropagation = (event: MouseEvent) => event.stopPropagation()
 
@@ -211,6 +212,42 @@ function buildProductColumns(actions: ProductActions) {
         ) : (
           <span className="text-muted-foreground">—</span>
         ),
+      meta: {
+        headerClassName: 'hidden @4xl:table-cell',
+        cellClassName: 'hidden whitespace-nowrap @4xl:table-cell',
+      },
+    }),
+    column.display({
+      id: 'total_price',
+      header: 'Prix total',
+      cell: ({ row }) => {
+        const { quantity, sale_price } = row.original
+        return sale_price > 0 ? (
+          <span className="font-semibold tabular-nums text-foreground">
+            {formatAmount(quantity * sale_price)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )
+      },
+      meta: {
+        headerClassName: 'hidden @4xl:table-cell',
+        cellClassName: 'hidden whitespace-nowrap @4xl:table-cell',
+      },
+    }),
+    column.display({
+      id: 'fixed_total_price',
+      header: 'Prix total fixe',
+      cell: ({ row }) => {
+        const { entered_quantity, sale_price } = row.original
+        return sale_price > 0 ? (
+          <span className="font-semibold tabular-nums text-foreground">
+            {formatAmount(entered_quantity * sale_price)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )
+      },
       meta: {
         headerClassName: 'hidden @4xl:table-cell',
         cellClassName: 'hidden whitespace-nowrap @4xl:table-cell',

@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-query'
 import { useAuth } from './useAuth'
 import { invalidateStockQueries } from './stockQueries'
-import type { Product, ProductFilters } from '../types/database'
+import type { ProductFilters } from '../types/database'
 import {
   createProduct,
   deleteProduct,
@@ -18,12 +18,10 @@ import {
   setProductActive,
   updateProduct,
   type CreateProductInput,
+  type ProductListResult,
 } from '../services/products'
 
-export function useProducts(filters: ProductFilters): UseQueryResult<{
-  data: Product[]
-  total: number
-}> {
+export function useProducts(filters: ProductFilters): UseQueryResult<ProductListResult> {
   const { user } = useAuth()
   const userId = user?.id ?? ''
 

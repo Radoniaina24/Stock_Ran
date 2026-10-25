@@ -17,6 +17,11 @@ export interface Product {
   updated_at: string
 }
 
+export interface ProductListItem extends Product {
+  /** Somme des entrées de stock, hors retours et annulations de vente. */
+  entered_quantity: number
+}
+
 export type NewProduct = Omit<Product, 'id' | 'user_id' | 'quantity' | 'created_at' | 'updated_at'> &
   Partial<Pick<Product, 'quantity'>>
 

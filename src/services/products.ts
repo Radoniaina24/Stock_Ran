@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { Product, ProductFilters } from '../types/database'
+import type { Product, ProductFilters, ProductListItem } from '../types/database'
 
 /** Nettoie une saisie pour éviter de casser la syntaxe de filtre PostgREST. */
 export function sanitizeSearch(value: string): string {
@@ -7,8 +7,41 @@ export function sanitizeSearch(value: string): string {
 }
 
 export interface ProductListResult {
-  data: Product[]
+  data: ProductListItem[]
   total: number
+}
+
+// Ces entrées réintègrent du stock déjà compté : elles ne sont pas de nouveaux approvisionnements.
+const RESTOCKING_ENTRY_REASONS = '("retour","annulation de vente")'
+// PostgREST plafonne le nombre de lignes renvoyées par requête.
+const MOVEMENTS_PAGE_SIZE = 1000
+
+async function sumEnteredQuantities(
+  userId: string,
+  productIds: string[],
+): Promise<Map<string, number>> {
+  const totals = new Map<string, number>()
+  if (productIds.length === 0) return totals
+
+  for (let from = 0; ; from += MOVEMENTS_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('stock_movements')
+      .select('product_id, quantity')
+      .eq('user_id', userId)
+      .eq('type', 'entry')
+      .in('product_id', productIds)
+      .not('reason', 'in', RESTOCKING_ENTRY_REASONS)
+      .order('id')
+      .range(from, from + MOVEMENTS_PAGE_SIZE - 1)
+
+    if (error) throw error
+    const rows = (data ?? []) as { product_id: string; quantity: number | string }[]
+    for (const row of rows) {
+      const sum = (totals.get(row.product_id) ?? 0) + Number(row.quantity)
+      totals.set(row.product_id, Math.round(sum * 1000) / 1000)
+    }
+    if (rows.length < MOVEMENTS_PAGE_SIZE) return totals
+  }
 }
 
 export async function listProducts(
@@ -46,7 +79,18 @@ export async function listProducts(
     .range(from, to)
 
   if (error) throw error
-  return { data: (data ?? []) as Product[], total: count ?? 0 }
+  const products = (data ?? []) as Product[]
+  const entered = await sumEnteredQuantities(
+    userId,
+    products.map((product) => product.id),
+  )
+  return {
+    data: products.map((product) => ({
+      ...product,
+      entered_quantity: entered.get(product.id) ?? 0,
+    })),
+    total: count ?? 0,
+  }
 }
 
 export async function listCategories(userId: string): Promise<string[]> {
