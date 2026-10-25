@@ -16,10 +16,12 @@ import { Card } from '../components/ui/card'
 import { SkeletonGroup } from '../components/ui/skeleton'
 import { ErrorState } from '../components/ui/states'
 import { ActivityChart, ActivityChartSkeleton } from '../components/dashboard/ActivityChart'
+import { CommercialSection } from '../components/dashboard/CommercialSection'
 import { StatCard, StatCardSkeleton } from '../components/dashboard/StatCard'
 import { StockAlertsCard, StockAlertsSkeleton } from '../components/dashboard/StockAlertsCard'
 import { RecentMovementsCard } from '../components/stock/RecentMovementsCard'
 import { useDashboard } from '../hooks/useDashboard'
+import { useSalesOverview } from '../hooks/useSales'
 import { ACTIVITY_DAYS } from '../services/dashboard'
 import { supabaseErrorMessage } from '../lib/supabase'
 import { cn } from '../lib/utils'
@@ -52,6 +54,7 @@ function DashboardSkeleton() {
 
 export function DashboardPage() {
   const dashboard = useDashboard()
+  const salesOverview = useSalesOverview()
   const navigate = useNavigate()
   const [today] = useState(() => capitalize(todayFormat.format(new Date())))
   const data = dashboard.data
@@ -62,7 +65,7 @@ export function DashboardPage() {
     <div className="w-full">
       <PageHeader
         title="Tableau de bord"
-        description={`${today} · Vue d’ensemble de votre stock.`}
+        description={`${today} · Vue d’ensemble de votre stock et de vos ventes.`}
         actions={
           <>
             {dashboard.dataUpdatedAt ? (
@@ -169,6 +172,14 @@ export function DashboardPage() {
             </div>
             <StockAlertsCard alerts={data.alerts} total={stats.lowStockProducts} />
           </section>
+
+          <CommercialSection
+            overview={salesOverview.data}
+            isLoading={salesOverview.isLoading}
+            isError={salesOverview.isError}
+            error={salesOverview.error}
+            onRetry={() => void salesOverview.refetch()}
+          />
         </div>
       ) : null}
 

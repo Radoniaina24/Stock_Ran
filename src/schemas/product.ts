@@ -19,6 +19,7 @@ export const productSchema = z.object({
   category: optionalText(60, 'La catégorie'),
   unit: z.enum(PRODUCT_UNITS, { error: 'Sélectionnez une unité de mesure.' }),
   low_stock_threshold: numberField("Le seuil d'alerte", { min: 0 }),
+  sale_price: numberField('Le prix de vente', { min: 0, max: 1_000_000_000_000 }),
 })
 
 export type ProductFormValues = z.input<typeof productSchema>
@@ -31,4 +32,5 @@ export const PRODUCT_DEFAULT_VALUES: ProductFormValues = {
   category: '',
   unit: 'pièce',
   low_stock_threshold: '0',
+  sale_price: '0',
 }

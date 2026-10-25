@@ -11,6 +11,27 @@ export function formatQuantity(value: number | string | null | undefined): strin
   return Number.isInteger(n) ? String(n) : n.toFixed(3).replace(/\.?0+$/, '')
 }
 
+/** Montant en Ariary : « 1 250 000 Ar » (décimales masquées si entier). */
+export function formatAmount(value: number | string | null | undefined): string {
+  const n = Number(value ?? 0)
+  if (!Number.isFinite(n)) return '0 Ar'
+  const formatted = new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(n)
+  return `${formatted} Ar`
+}
+
+/** Montant signé en Ariary, utile pour les variations (+12 % / -3 000 Ar). */
+export function formatSignedAmount(value: number | string | null | undefined): string {
+  const n = Number(value ?? 0)
+  if (!Number.isFinite(n)) return '0 Ar'
+  const amount = formatAmount(Math.abs(n))
+  if (n > 0) return `+${amount}`
+  if (n < 0) return `-${amount}`
+  return amount
+}
+
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '—'
   const date = typeof value === 'string' ? new Date(value) : value

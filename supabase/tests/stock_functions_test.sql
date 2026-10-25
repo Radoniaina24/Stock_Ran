@@ -67,8 +67,8 @@ begin
   if v_product.quantity <> 0 then
     raise exception 'ÉCHEC (#1) : la quantité initiale doit être égale à 0.';
   end if;
-  if v_product.stock_status <> 'low' then
-    raise exception 'ÉCHEC (#1) : le statut calculé devrait être « low » (0 <= seuil 3).';
+  if v_product.stock_status <> 'out' then
+    raise exception 'ÉCHEC (#1) : le statut calculé devrait être « out » (quantité 0).';
   end if;
 
   -- ------------------------------------------------------------------
@@ -197,24 +197,36 @@ begin
   end if;
 
   select count(*) into v_count
-  from (
-    select quantity_after,
-           lead(quantity_before) over (order by created_at, id) as next_before
-    from public.stock_movements
-    where product_id = v_product.id
-  ) chain
-  where next_before is not null and next_before <> quantity_after;
+  from public.stock_movements m
+  where m.product_id = v_product.id
+    and m.quantity_before <> 0
+    and not exists (
+      select 1 from public.stock_movements m2
+      where m2.product_id = m.product_id
+        and m2.quantity_after = m.quantity_before
+    );
 
   if v_count <> 0 then
     raise exception 'ÉCHEC (#10) : % rupture(s) de continuité dans l''historique.', v_count;
   end if;
 
   select quantity into v_qty from public.products where id = v_product.id;
-  select quantity_after into v_last
-  from public.stock_movements
-  where product_id = v_product.id
-  order by created_at desc, id desc
-  limit 1;
+
+  -- Une seule extrémité finale (aucun mouvement ne la prolonge), égale
+  -- au stock courant. Indépendant de l'ordre des lignes : toutes les
+  -- lignes créées dans la même transaction partagent le même created_at.
+  select count(*), coalesce(max(quantity_after), -1) into v_count, v_last
+  from public.stock_movements m
+  where m.product_id = v_product.id
+    and not exists (
+      select 1 from public.stock_movements m2
+      where m2.product_id = m.product_id
+        and m2.quantity_before = m.quantity_after
+    );
+
+  if v_count <> 1 then
+    raise exception 'ÉCHEC (#10) : la chaîne d''historique doit avoir une seule extrémité (obtenu %).', v_count;
+  end if;
 
   if v_qty <> v_last then
     raise exception 'ÉCHEC (#10) : le stock (%) ne correspond pas au dernier mouvement (%).',
@@ -234,6 +246,10 @@ begin
   end if;
 
   -- La quantité ne peut jamais être modifiée directement
+  -- Le drapeau transactionnel laissé par record_stock_* est neutralisé :
+  -- chaque requête PostgREST s exécute dans sa propre transaction.
+  perform set_config('app.allow_quantity_change', 'false', true);
+
   v_raised := false;
   begin
     update public.products set quantity = 999 where id = v_product.id;

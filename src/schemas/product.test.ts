@@ -14,6 +14,7 @@ const validPayload = {
   category: 'Outillage',
   unit: 'pièce',
   low_stock_threshold: '5',
+  sale_price: '12 500,50',
 }
 
 describe('productSchema', () => {
@@ -22,8 +23,18 @@ describe('productSchema', () => {
     expect(result.success).toBe(true)
     if (!result.success) return
     expect(result.data.low_stock_threshold).toBe(5)
+    expect(result.data.sale_price).toBe(12500.5)
     expect(result.data.description).toBeNull()
     expect(result.data.category).toBe('Outillage')
+  })
+
+  it('refuse un prix de vente négatif ou non numérique', () => {
+    expect(issue(productSchema, { ...validPayload, sale_price: '-1' }, 'sale_price')).toBe(
+      'Le prix de vente doit être supérieur ou égal à 0.',
+    )
+    expect(issue(productSchema, { ...validPayload, sale_price: 'abc' }, 'sale_price')).toBe(
+      'Le prix de vente doit être un nombre valide.',
+    )
   })
 
   it('refuse un produit sans nom', () => {

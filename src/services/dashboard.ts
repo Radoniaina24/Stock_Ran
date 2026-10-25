@@ -7,7 +7,7 @@ import {
   type StockAlert,
 } from '../lib/dashboard'
 import { endOfTodayIso, startOfTodayIso } from '../lib/utils'
-import type { DashboardStats } from '../types/database'
+import type { DashboardStats, SalesOverview } from '../types/database'
 
 export const ACTIVITY_DAYS = 7
 const MAX_ALERTS = 5
@@ -16,6 +16,16 @@ export interface DashboardData {
   stats: DashboardStats
   alerts: StockAlert[]
   activity: DailyActivity[]
+}
+
+/**
+ * Synthèse commerciale (ventes, encaissements, créances) calculée par la
+ * fonction SQL `sales_overview()` : les montants sont agrégés côté base.
+ */
+export async function fetchSalesOverview(): Promise<SalesOverview> {
+  const { data, error } = await supabase.rpc('sales_overview')
+  if (error) throw error
+  return data as SalesOverview
 }
 
 export async function fetchDashboard(userId: string): Promise<DashboardData> {

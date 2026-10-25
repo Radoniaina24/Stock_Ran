@@ -115,6 +115,7 @@ export interface CreateProductInput {
   category: string | null
   unit: string
   low_stock_threshold: number
+  sale_price: number
 }
 
 export async function createProduct(userId: string, input: CreateProductInput): Promise<Product> {

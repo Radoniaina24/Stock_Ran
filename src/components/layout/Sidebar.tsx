@@ -1,51 +1,61 @@
-import { NavLink } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Boxes, LogOut } from 'lucide-react'
 import { NAV_ITEMS } from './nav'
 import { cn, getInitials } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 import { usePreferences } from '../../hooks/usePreferences'
 
+/** État actif calculé ici : deux entrées peuvent partager le même chemin (?type=...). */
+function isItemActive(
+  item: (typeof NAV_ITEMS)[number],
+  location: { pathname: string; search: string },
+): boolean {
+  if (item.match) return item.match(location)
+
+  const path = item.to.split('?')[0] ?? '/'
+  if (item.end) return location.pathname === path
+  return location.pathname === path || location.pathname.startsWith(`${path}/`)
+}
+
 export function NavList({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
+  const location = useLocation()
+
   return (
     <nav className={cn('flex flex-col gap-0.5 px-3', className)} aria-label="Navigation principale">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon
+        const isActive = isItemActive(item, location)
+
         return (
-          <NavLink
+          <Link
             key={item.to}
             to={item.to}
-            end={item.end}
             onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-all duration-200',
-                'focus-visible:ring-2 focus-visible:ring-primary/40',
-                isActive
-                  ? 'bg-primary-soft text-primary shadow-sm'
-                  : 'text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground',
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {/* Indicateur d'état actif */}
-                <span
-                  className={cn(
-                    'absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary transition-all duration-200',
-                    isActive ? 'opacity-100' : 'opacity-0',
-                  )}
-                  aria-hidden="true"
-                />
-                <Icon
-                  className={cn(
-                    'size-4 shrink-0 transition-transform duration-200',
-                    isActive ? 'scale-105' : 'group-hover:scale-105',
-                  )}
-                />
-                <span className="truncate">{item.label}</span>
-              </>
+            aria-current={isActive ? 'page' : undefined}
+            className={cn(
+              'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-all duration-200',
+              'focus-visible:ring-2 focus-visible:ring-primary/40',
+              isActive
+                ? 'bg-primary-soft text-primary shadow-sm'
+                : 'text-muted-foreground hover:translate-x-0.5 hover:bg-muted hover:text-foreground',
             )}
-          </NavLink>
+          >
+            {/* Indicateur d'état actif */}
+            <span
+              className={cn(
+                'absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary transition-all duration-200',
+                isActive ? 'opacity-100' : 'opacity-0',
+              )}
+              aria-hidden="true"
+            />
+            <Icon
+              className={cn(
+                'size-4 shrink-0 transition-transform duration-200',
+                isActive ? 'scale-105' : 'group-hover:scale-105',
+              )}
+            />
+            <span className="truncate">{item.label}</span>
+          </Link>
         )
       })}
     </nav>

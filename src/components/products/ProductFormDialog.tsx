@@ -53,6 +53,7 @@ export function ProductFormDialog({ product, onClose }: ProductFormDialogProps) 
         category: product.category ?? '',
         unit: product.unit as ProductFormValues['unit'],
         low_stock_threshold: String(product.low_stock_threshold),
+        sale_price: String(product.sale_price),
       }
     : PRODUCT_DEFAULT_VALUES
 
@@ -220,6 +221,28 @@ export function ProductFormDialog({ product, onClose }: ProductFormDialogProps) 
               />
               <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-muted-foreground">
                 {unit}
+              </span>
+            </div>
+          </FormField>
+
+          <FormField
+            label="Prix de vente"
+            htmlFor="product-sale-price"
+            required
+            error={errors.sale_price?.message}
+            hint="Proposé automatiquement lors de la création d’une vente."
+          >
+            <div className="relative sm:max-w-56">
+              <Input
+                id="product-sale-price"
+                inputMode="decimal"
+                placeholder="0"
+                className="pe-12 tabular-nums"
+                aria-invalid={Boolean(errors.sale_price)}
+                {...form.register('sale_price')}
+              />
+              <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-muted-foreground">
+                Ar
               </span>
             </div>
           </FormField>

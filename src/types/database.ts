@@ -10,6 +10,7 @@ export interface Product {
   unit: string
   quantity: number
   low_stock_threshold: number
+  sale_price: number
   is_active: boolean
   stock_status: StockStatus
   created_at: string
@@ -123,3 +124,228 @@ export const PRODUCT_UNITS = [
   'palette',
   'lot',
 ] as const
+
+// -----------------------------------------------------------------------
+// Clients, ventes et paiements
+// -----------------------------------------------------------------------
+
+export type PaymentMethod = 'cash' | 'mobile_money' | 'bank_transfer' | 'check' | 'other'
+
+export type SalePaymentStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled'
+
+export type SaleStatus = 'validated' | 'cancelled'
+
+export type PaymentStatus = 'pending' | 'validated' | 'cancelled'
+
+export interface Client {
+  id: string
+  user_id: string
+  code: string
+  name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+/** Vue `client_balances` : client avec ses totaux de vente et de créance. */
+export interface ClientBalance extends Client {
+  total_sales: number
+  total_paid: number
+  balance_due: number
+  sales_count: number
+  open_sales_count: number
+}
+
+export interface Sale {
+  id: string
+  user_id: string
+  reference: string
+  client_id: string
+  sale_date: string
+  subtotal: number
+  discount_amount: number
+  total_amount: number
+  payment_status: SalePaymentStatus
+  status: SaleStatus
+  comment: string | null
+  cancelled_at: string | null
+  cancel_comment: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Vue `sale_balances` : vente avec encaissé, solde restant dû et client. */
+export interface SaleBalance extends Sale {
+  client_name: string | null
+  client_code: string | null
+  paid_amount: number
+  balance_due: number
+  payments_count: number
+  last_payment_at: string | null
+}
+
+export interface SaleItem {
+  id: string
+  sale_id: string
+  product_id: string
+  product_reference_snapshot: string
+  product_name_snapshot: string
+  quantity: number
+  unit_price: number
+  line_total: number
+}
+
+export interface Payment {
+  id: string
+  user_id: string
+  reference: string
+  sale_id: string
+  client_id: string
+  amount: number
+  payment_method: PaymentMethod
+  transaction_reference: string | null
+  status: PaymentStatus
+  paid_at: string
+  comment: string | null
+  cancelled_at: string | null
+  cancel_comment: string | null
+  created_at: string
+}
+
+/** Ligne de paiement enrichie du nom du client et de la référence de vente. */
+export interface PaymentRow extends Payment {
+  client_name: string | null
+  sale_reference: string
+  sale_status: SaleStatus
+}
+
+/** Réponse JSON de la fonction `sales_overview()` (tableau de bord). */
+export interface SalesOverview {
+  total_sales: number
+  total_paid: number
+  total_receivables: number
+  unpaid_count: number
+  partial_count: number
+  paid_count: number
+  sales_count: number
+  receivables_count: number
+  latest_sales: {
+    id: string
+    reference: string
+    client_name: string | null
+    sale_date: string
+    total_amount: number
+    paid_amount: number
+    balance_due: number
+    payment_status: SalePaymentStatus
+    created_at: string
+  }[]
+  latest_payments: {
+    id: string
+    reference: string
+    amount: number
+    payment_method: PaymentMethod
+    paid_at: string
+    client_name: string | null
+    sale_reference: string
+  }[]
+  top_products: {
+    name: string
+    reference: string
+    quantity: number
+    amount: number
+  }[]
+}
+
+export interface ClientFilters {
+  search: string
+  status: 'all' | 'active' | 'archived'
+  balance: 'all' | 'with_balance' | 'settled'
+  sort: ClientSortKey
+  order: 'asc' | 'desc'
+  page: number
+  pageSize: number
+}
+
+export type ClientSortKey = 'code' | 'name' | 'balance_due' | 'total_sales' | 'created_at'
+
+export interface SaleFilters {
+  search: string
+  status: 'all' | SaleStatus
+  paymentStatus: 'all' | Exclude<SalePaymentStatus, 'cancelled'>
+  clientId: string
+  from: string
+  to: string
+}
+
+export interface PaymentFilters {
+  search: string
+  method: 'all' | PaymentMethod
+  clientId: string
+  from: string
+  to: string
+}
+
+export const EMPTY_CLIENT_FILTERS: ClientFilters = {
+  search: '',
+  status: 'all',
+  balance: 'all',
+  sort: 'created_at',
+  order: 'desc',
+  page: 1,
+  pageSize: 10,
+}
+
+export const EMPTY_SALE_FILTERS: SaleFilters = {
+  search: '',
+  status: 'all',
+  paymentStatus: 'all',
+  clientId: '',
+  from: '',
+  to: '',
+}
+
+export const EMPTY_PAYMENT_FILTERS: PaymentFilters = {
+  search: '',
+  method: 'all',
+  clientId: '',
+  from: '',
+  to: '',
+}
+
+export const PAYMENT_METHODS = [
+  'cash',
+  'mobile_money',
+  'bank_transfer',
+  'check',
+  'other',
+] as const
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  cash: 'Espèces',
+  mobile_money: 'Mobile Money',
+  bank_transfer: 'Virement bancaire',
+  check: 'Chèque',
+  other: 'Autre',
+}
+
+export const PAYMENT_STATUS_LABELS: Record<SalePaymentStatus, string> = {
+  unpaid: 'Non payée',
+  partial: 'Partiellement payée',
+  paid: 'Payée',
+  cancelled: 'Annulée',
+}
+
+export const SALE_STATUS_LABELS: Record<SaleStatus, string> = {
+  validated: 'Validée',
+  cancelled: 'Annulée',
+}
+
+export const PAYMENT_RECORD_STATUS_LABELS: Record<PaymentStatus, string> = {
+  pending: 'En attente',
+  validated: 'Encaissé',
+  cancelled: 'Annulé',
+}

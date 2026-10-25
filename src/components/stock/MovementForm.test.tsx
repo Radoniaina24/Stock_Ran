@@ -15,6 +15,7 @@ const PRODUCT: Product = {
   unit: 'kg',
   quantity: 10,
   low_stock_threshold: 4,
+  sale_price: 2500,
   is_active: true,
   stock_status: 'ok',
   created_at: '2026-10-01T00:00:00Z',

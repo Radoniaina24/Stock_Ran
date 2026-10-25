@@ -1,5 +1,13 @@
 import { z } from 'zod'
 
+/** Convertit une saisie numérique (« 1 500,5 ») en nombre, 0 si invalide. */
+export function parseNumberInput(value: string | number | null | undefined): number {
+  const raw = String(value ?? '').replace(/\s/g, '').replace(',', '.')
+  if (raw === '') return 0
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 /**
  * Champ numérique saisi comme chaîne (input HTML) puis converti en nombre.
  * Messages d'erreur entièrement en français.
@@ -13,7 +21,7 @@ export function numberField(
   return z
     .string()
     .superRefine((value, ctx) => {
-      const raw = value.trim().replace(',', '.')
+      const raw = value.replace(/\s/g, '').replace(',', '.')
       if (raw === '') {
         if (required) {
           ctx.addIssue({ code: 'custom', message: `${label} est obligatoire.` })
@@ -42,7 +50,7 @@ export function numberField(
       }
     })
     .transform((value) => {
-      const raw = value.trim().replace(',', '.')
+      const raw = value.replace(/\s/g, '').replace(',', '.')
       return raw === '' ? 0 : Number(raw)
     })
 }
