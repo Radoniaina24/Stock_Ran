@@ -32,7 +32,7 @@ import { MovementDialog } from '../components/stock/MovementDialog'
 import { useCategories, useProductMutations, useProducts } from '../hooks/useProducts'
 import { useDebounce } from '../hooks/useDebounce'
 import { getProductStatus } from '../lib/stock'
-import { cn, formatQuantity } from '../lib/utils'
+import { cn, formatAmount, formatQuantity } from '../lib/utils'
 import { supabaseErrorMessage } from '../lib/supabase'
 import {
   EMPTY_PRODUCT_FILTERS,
@@ -201,6 +201,19 @@ function buildProductColumns(actions: ProductActions) {
             />
           </div>
         )
+      },
+    }),
+    column.accessor('sale_price', {
+      header: 'Prix de vente',
+      cell: (info) =>
+        info.getValue() > 0 ? (
+          <span className="tabular-nums text-foreground">{formatAmount(info.getValue())}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+      meta: {
+        headerClassName: 'hidden @4xl:table-cell',
+        cellClassName: 'hidden whitespace-nowrap @4xl:table-cell',
       },
     }),
     column.accessor('low_stock_threshold', {
@@ -373,6 +386,9 @@ export function ProductsPage() {
 
   const rows = products.data?.data ?? NO_PRODUCTS
   const total = products.data?.total ?? 0
+  const liveDetails = detailsProduct
+    ? (rows.find((row) => row.id === detailsProduct.id) ?? detailsProduct)
+    : null
 
   const sorting = useMemo<SortingState>(() => [{ id: sort, desc: order === 'desc' }], [sort, order])
   const sortValue = `${sort}:${order}`
@@ -614,7 +630,7 @@ export function ProductsPage() {
       ) : null}
 
       <ProductDetailsDialog
-        product={detailsProduct}
+        product={liveDetails}
         onClose={() => setDetailsProduct(null)}
         onEdit={actions.onEdit}
         onMovement={actions.onMovement}

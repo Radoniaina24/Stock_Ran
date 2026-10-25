@@ -12,10 +12,11 @@ import {
   Ruler,
   Scale,
   Tag,
+  Wallet,
 } from 'lucide-react'
 import type { Product, StockMovement } from '../../types/database'
 import { EMPTY_MOVEMENT_FILTERS } from '../../types/database'
-import { cn, formatDate, formatQuantity } from '../../lib/utils'
+import { cn, formatAmount, formatDate, formatQuantity } from '../../lib/utils'
 import { getProductStatus, STOCK_STATUS_LABELS } from '../../lib/stock'
 import { useMovements } from '../../hooks/useMovements'
 import { Modal } from '../ui/dialog'
@@ -214,6 +215,22 @@ export function ProductDetailsDialog({ product, onClose, onEdit, onMovement }: P
 
           <dl className="grid gap-2 sm:grid-cols-2">
             <InfoItem icon={Tag} label="Catégorie" value={product.category || '—'} />
+            <InfoItem
+              icon={Wallet}
+              label="Prix de vente"
+              value={
+                product.sale_price > 0 ? (
+                  <span className="font-medium tabular-nums text-foreground">
+                    {formatAmount(product.sale_price)}
+                    <span className="ms-1 text-xs font-normal text-muted-foreground">
+                      / {product.unit}
+                    </span>
+                  </span>
+                ) : (
+                  '—'
+                )
+              }
+            />
             <InfoItem icon={Ruler} label="Unité de mesure" value={product.unit} />
             <InfoItem icon={CalendarPlus} label="Créé le" value={formatDate(product.created_at)} />
             <InfoItem icon={CalendarClock} label="Dernière modification" value={formatDate(product.updated_at)} />

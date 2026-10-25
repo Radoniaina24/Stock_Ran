@@ -1,9 +1,10 @@
 # Gestion de stock
 
-Application web de gestion de stock pour un usage personnel ou une petite activité :
-produits, entrées/sorties de stock, historique et tableau de bord.
+Application web de gestion de stock et de ventes pour un usage personnel ou une petite
+activité : produits, entrées/sorties de stock, clients, ventes, paiements partiels,
+créances clients, historique et tableau de bord.
 
-Aucune gestion des ventes, factures, clients, fournisseurs, commandes ni paiements.
+Aucune gestion de factures, fournisseurs ni commandes.
 
 ---
 
@@ -26,11 +27,23 @@ Aucune gestion des ventes, factures, clients, fournisseurs, commandes ni paiemen
 ## Fonctionnalités
 
 - **Tableau de bord** : produits actifs, quantité totale, produits en stock faible, entrées et
-  sorties du jour, derniers mouvements.
+  sorties du jour, chiffre d'affaires, encaissements, créances clients, dernières ventes,
+  derniers paiements et produits les plus vendus.
 - **Produits** : ajout, modification, consultation des détails, archivage, suppression,
-  recherche par référence/nom, filtres (catégorie, statut, stock faible), tri et pagination.
+  prix de vente, recherche par référence/nom, filtres (catégorie, statut, stock faible),
+  tri et pagination.
+- **Clients** : fiche client avec code automatique (`CLI-0001`), coordonnées, création,
+  modification, archivage/suppression (refusé dès qu'un client a des ventes), solde de créance.
 - **Mouvements** : entrées, sorties et ajustements enregistrés par des fonctions SQL
   transactionnelles (`record_stock_entry`, `record_stock_exit`, `record_stock_adjustment`).
+  Les pages dédiées sont accessibles depuis la navigation (entrées de stock / sorties de stock).
+- **Ventes** : création par lignes (prix unitaire **figé** à la vente), remise éventuelle,
+  encaissement immédiat partiel ou total, références automatiques (`VTE-0001`), détails avec
+  lignes et paiements, annulation avec réintégration du stock.
+- **Paiements** : encaissements enregistrés par RPC (`record_payment`), moyens de paiement,
+  historique consultable et annulation tracée (les paiements validés ne sont jamais supprimés).
+- **Créances clients** : total à recouvrer, ventes partiellement réglées, encaissement direct
+  depuis la fiche de la vente.
 - **Historique** : recherche, filtres (type, produit, période, motif), export CSV, quantités
   avant/après, badge entrée (vert) / sortie (rouge) / ajustement (bleu).
 - **Paramètres** : nom de l'application, densité d'affichage, changement de mot de passe,
@@ -83,6 +96,9 @@ npm run dev
    | 1 | `supabase/migrations/0001_init_schema.sql` | tables `products` et `stock_movements`, index, colonne générée `stock_status`, triggers `updated_at` et protection de `quantity` |
    | 2 | `supabase/migrations/0002_rls_policies.sql` | politiques Row Level Security |
    | 3 | `supabase/migrations/0003_functions.sql` | fonctions transactionnelles `record_stock_*` |
+   | 4 | `supabase/migrations/0004_realtime.sql` | publication temps réel pour la synchronisation entre onglets |
+   | 5 | `supabase/migrations/0005_sales_schema.sql` | tables `clients`, `sales`, `sale_items`, `payments`, colonne `sale_price`, compteurs de références, RLS |
+   | 6 | `supabase/migrations/0006_sales_functions.sql` | vues `sale_balances` / `client_balances` et RPC `create_sale`, `record_payment`, `cancel_payment`, `cancel_sale`, `sales_overview` |
 
 5. Relancer `npm run dev`.
 
@@ -95,15 +111,19 @@ ne conserver que le compte propriétaire.
 
 ```
 supabase/
-  migrations/            SQL reproductible (0001 → 0003)
-  tests/                 script de tests SQL des fonctions
+  migrations/            SQL reproductible (0001 → 0006)
+  tests/                 scripts de tests SQL (stock et ventes)
 src/
   components/
     layout/              AppLayout, sidebar, navigation mobile, en-têtes de page
     ui/                  boutons, champs, tableaux, modales, toasts, états...
     products/            badges de statut, formulaire et détails produit
+    clients/             formulaire client
+    sales/               formulaire de vente, paiement, détails et badges de statut
     stock/               badges de mouvement, derniers mouvements
-  pages/                 Dashboard, Produits, Mouvements, Historique, Paramètres, Connexion
+    dashboard/           cartes d'indicateurs, graphe d'activité, alertes de stock
+  pages/                 Dashboard, Produits, Clients, Ventes, Mouvements, Historique,
+                         Paiements, Créances, Paramètres, Connexion
   hooks/                 useAuth, usePreferences, requêtes TanStack Query
   lib/                   client Supabase, utilitaires, statuts de stock, export CSV
   router/                routes et garde d'authentification
