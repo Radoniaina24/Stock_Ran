@@ -15,6 +15,12 @@ export interface ClientOption {
   balance_due: number
 }
 
+/** La vue `client_balances` expose l'identifiant sous le nom `client_id`. */
+function withClientId<T extends { client_id: string }>(row: T): Omit<T, 'client_id'> & { id: string } {
+  const { client_id, ...rest } = row
+  return { ...rest, id: client_id }
+}
+
 export async function listClients(
   userId: string,
   filters: ClientFilters,
@@ -49,20 +55,60 @@ export async function listClients(
     .range(from, to)
 
   if (error) throw error
-  return { data: (data ?? []) as ClientBalance[], total: count ?? 0 }
+  return {
+    data: ((data ?? []) as (Omit<ClientBalance, 'id'> & { client_id: string })[]).map(
+      (row) => withClientId(row) as ClientBalance,
+    ),
+    total: count ?? 0,
+  }
+}
+
+export interface ClientSummary {
+  counts: { all: number; active: number; with_balance: number; archived: number }
+  totalSales: number
+  totalPaid: number
+  balanceDue: number
+}
+
+/** Compteurs des onglets et totaux du portefeuille client. */
+export async function fetchClientSummary(userId: string): Promise<ClientSummary> {
+  const { data, error } = await supabase
+    .from('client_balances')
+    .select('is_active, balance_due, total_sales, total_paid')
+    .eq('user_id', userId)
+    .limit(10000)
+
+  if (error) throw error
+
+  const summary: ClientSummary = {
+    counts: { all: 0, active: 0, with_balance: 0, archived: 0 },
+    totalSales: 0,
+    totalPaid: 0,
+    balanceDue: 0,
+  }
+  for (const row of (data ?? []) as Pick<ClientBalance, 'is_active' | 'balance_due' | 'total_sales' | 'total_paid'>[]) {
+    summary.counts.all += 1
+    if (row.is_active) summary.counts.active += 1
+    else summary.counts.archived += 1
+    if (Number(row.balance_due) > 0) summary.counts.with_balance += 1
+    summary.totalSales += Number(row.total_sales)
+    summary.totalPaid += Number(row.total_paid)
+    summary.balanceDue += Number(row.balance_due)
+  }
+  return summary
 }
 
 /** Liste légère pour les listes déroulantes (ventes, filtres). */
 export async function listClientOptions(userId: string): Promise<ClientOption[]> {
   const { data, error } = await supabase
     .from('client_balances')
-    .select('id, code, name, balance_due')
+    .select('client_id, code, name, balance_due')
     .eq('user_id', userId)
     .eq('is_active', true)
     .order('name')
 
   if (error) throw error
-  return (data ?? []) as ClientOption[]
+  return ((data ?? []) as (Omit<ClientOption, 'id'> & { client_id: string })[]).map(withClientId)
 }
 
 export async function getClient(userId: string, clientId: string): Promise<Client> {

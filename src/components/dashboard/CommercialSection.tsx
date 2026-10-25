@@ -6,7 +6,7 @@ import { SkeletonGroup } from '../ui/skeleton'
 import { ErrorState, EmptyState } from '../ui/states'
 import { PaymentStatusBadge } from '../sales/status-badges'
 import { supabaseErrorMessage } from '../../lib/supabase'
-import { formatAmount, formatDate, formatQuantity } from '../../lib/utils'
+import { formatAmount, formatDate, formatDay, formatQuantity } from '../../lib/utils'
 import type { SalesOverview } from '../../types/database'
 
 const numberFormat = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 })
@@ -48,7 +48,7 @@ export interface CommercialSectionProps {
 
 export function CommercialSectionSkeleton() {
   return (
-    <SkeletonGroup label="Chargement de lâ€™activitÃ© commercialeâ€¦" className="space-y-4">
+    <SkeletonGroup label="Chargement de l’activité commerciale…" className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <StatCardSkeleton key={index} />
@@ -96,19 +96,19 @@ export function CommercialSection({
           icon={Banknote}
           tone="success"
           to="/paiements"
-          footer={`${numberFormat.format(overview.paid_count)} vente${overview.paid_count > 1 ? 's' : ''} rÃ©glÃ©e${overview.paid_count > 1 ? 's' : ''}`}
+          footer={`${numberFormat.format(overview.paid_count)} vente${overview.paid_count > 1 ? 's' : ''} réglée${overview.paid_count > 1 ? 's' : ''}`}
         />
         <StatCard
-          label="CrÃ©ances clients"
+          label="Créances clients"
           value={formatAmount(overview.total_receivables)}
           icon={HandCoins}
           tone={overview.total_receivables > 0 ? 'danger' : 'success'}
           to="/creances"
           footer={
             overview.receivables_count > 0 ? (
-              `${numberFormat.format(overview.receivables_count)} vente${overview.receivables_count > 1 ? 's' : ''} Ã  recouvrer`
+              `${numberFormat.format(overview.receivables_count)} vente${overview.receivables_count > 1 ? 's' : ''} à recouvrer`
             ) : (
-              <span className="text-success">Tout est rÃ©glÃ©</span>
+              <span className="text-success">Tout est réglé</span>
             )
           }
         />
@@ -117,24 +117,24 @@ export function CommercialSection({
           value={numberFormat.format(pendingCount)}
           icon={TrendingUp}
           tone={pendingCount > 0 ? 'warning' : 'success'}
-          to="/ventes?statut=impayee"
+          to="/creances"
           footer={
             pendingCount > 0
-              ? `${overview.unpaid_count} non payÃ©e${overview.unpaid_count > 1 ? 's' : ''} Â· ${overview.partial_count} partielle${overview.partial_count > 1 ? 's' : ''}`
+              ? `${overview.unpaid_count} non payée${overview.unpaid_count > 1 ? 's' : ''} · ${overview.partial_count} partielle${overview.partial_count > 1 ? 's' : ''}`
               : 'Aucune vente en attente'
           }
         />
       </section>
 
       <section
-        aria-label="DÃ©tail des ventes et paiements"
-        className="grid gap-4 lg:grid-cols-2 @3xl:grid-cols-3"
+        aria-label="Détail des ventes et paiements"
+        className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3"
       >
-        <CardShell title="DerniÃ¨res ventes" href="/ventes" linkLabel="Toutes les ventes">
+        <CardShell title="Dernières ventes" href="/ventes" linkLabel="Toutes les ventes">
           {overview.latest_sales.length === 0 ? (
             <EmptyState
               title="Aucune vente."
-              description="Vos derniÃ¨res ventes apparaÃ®tront ici."
+              description="Vos dernières ventes apparaîtront ici."
               icon={<ReceiptText className="size-5" />}
             />
           ) : (
@@ -147,10 +147,10 @@ export function CommercialSection({
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-foreground">
-                        {sale.client_name ?? 'Client supprimÃ©'}
+                        {sale.client_name ?? 'Client supprimé'}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        <span className="font-mono">{sale.reference}</span> Â· {formatDate(sale.sale_date)}
+                        <span className="font-mono">{sale.reference}</span> · {formatDay(sale.sale_date)}
                       </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1">
@@ -170,7 +170,7 @@ export function CommercialSection({
           {overview.latest_payments.length === 0 ? (
             <EmptyState
               title="Aucun paiement."
-              description="Les encaissements rÃ©cents apparaÃ®tront ici."
+              description="Les encaissements récents apparaîtront ici."
               icon={<Banknote className="size-5" />}
             />
           ) : (
@@ -185,7 +185,7 @@ export function CommercialSection({
                       {payment.client_name ?? 'Client'}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      <span className="font-mono">{payment.sale_reference}</span> Â·{' '}
+                      <span className="font-mono">{payment.sale_reference}</span> ·{' '}
                       {formatDate(payment.paid_at)}
                     </span>
                   </span>
@@ -202,7 +202,7 @@ export function CommercialSection({
           {overview.top_products.length === 0 ? (
             <EmptyState
               title="Aucun produit vendu."
-              description="Le classement apparaÃ®tra dÃ¨s la premiÃ¨re vente."
+              description="Le classement apparaîtra dès la première vente."
             />
           ) : (
             <ol className="space-y-2">
@@ -220,7 +220,7 @@ export function CommercialSection({
                         {product.name}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground tabular-nums">
-                        {formatQuantity(product.quantity)} unitÃ©s Â· {formatAmount(product.amount)}
+                        {formatQuantity(product.quantity)} unités · {formatAmount(product.amount)}
                       </span>
                     </span>
                   </span>

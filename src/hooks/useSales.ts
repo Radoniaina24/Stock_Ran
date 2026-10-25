@@ -8,9 +8,11 @@ import {
 import { useAuth } from './useAuth'
 import { invalidateSalesQueries } from './salesQueries'
 import type { SaleBalance, SaleFilters, SaleItem, SalesOverview } from '../types/database'
+import { summarizeSales, type SaleSummary } from '../lib/sales'
 import {
   cancelSale,
   createSale,
+  fetchSaleSummaryRows,
   getSale,
   listOpenSales,
   listSaleItems,
@@ -32,6 +34,20 @@ export function useSales(
     enabled: Boolean(userId),
     placeholderData: keepPreviousData,
     queryFn: () => listSales(userId, filters, { page, pageSize }),
+  })
+}
+
+/** Compteurs par onglet et montants pour les filtres courants (hors statut). */
+export function useSaleSummary(filters: SaleFilters): UseQueryResult<SaleSummary> {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+  const { search, clientId, from, to } = filters
+
+  return useQuery({
+    queryKey: ['sales', userId, 'summary', { search, clientId, from, to }],
+    enabled: Boolean(userId),
+    placeholderData: keepPreviousData,
+    queryFn: async () => summarizeSales(await fetchSaleSummaryRows(userId, filters)),
   })
 }
 

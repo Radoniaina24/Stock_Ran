@@ -1,21 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Boxes, LogOut } from 'lucide-react'
-import { NAV_ITEMS } from './nav'
+import { isNavItemActive, NAV_ITEMS } from './nav'
 import { cn, getInitials } from '../../lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 import { usePreferences } from '../../hooks/usePreferences'
-
-/** État actif calculé ici : deux entrées peuvent partager le même chemin (?type=...). */
-function isItemActive(
-  item: (typeof NAV_ITEMS)[number],
-  location: { pathname: string; search: string },
-): boolean {
-  if (item.match) return item.match(location)
-
-  const path = item.to.split('?')[0] ?? '/'
-  if (item.end) return location.pathname === path
-  return location.pathname === path || location.pathname.startsWith(`${path}/`)
-}
 
 export function NavList({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const location = useLocation()
@@ -24,7 +12,7 @@ export function NavList({ onNavigate, className }: { onNavigate?: () => void; cl
     <nav className={cn('flex flex-col gap-0.5 px-3', className)} aria-label="Navigation principale">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon
-        const isActive = isItemActive(item, location)
+        const isActive = isNavItemActive(item, location)
 
         return (
           <Link

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatQuantity, getInitials, toDateInputValue } from './utils'
+import { formatDate, formatDay, formatQuantity, getInitials, toDateInputValue } from './utils'
 
 describe('getInitials', () => {
   it('déduit les initiales de la partie locale de l’e-mail', () => {
@@ -36,6 +36,18 @@ describe('formatDate', () => {
 
   it('formate une date ISO valide', () => {
     expect(formatDate('2026-01-15T10:30:00.000Z')).not.toBe('—')
+  })
+})
+
+describe('formatDay', () => {
+  it('affiche la date calendaire sans heure ni décalage de fuseau', () => {
+    expect(formatDay('2026-10-20')).toMatch(/^20 oct\.? 2026$/)
+    expect(formatDay('2026-01-01')).toMatch(/^01 janv\.? 2026$/)
+  })
+
+  it('affiche un tiret quand la date est absente ou invalide', () => {
+    expect(formatDay(null)).toBe('—')
+    expect(formatDay('hier')).toBe('—')
   })
 })
 

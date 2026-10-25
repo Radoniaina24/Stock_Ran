@@ -33,6 +33,21 @@ function movementsKind(kind: 'entree' | 'sortie') {
   }
 }
 
+/** État actif calculé ici : deux entrées peuvent partager le même chemin (?type=...). */
+export function isNavItemActive(
+  item: NavItem,
+  location: Pick<Location, 'pathname' | 'search'>,
+): boolean {
+  if (item.match) return item.match(location)
+
+  const path = item.to.split('?')[0] ?? '/'
+  if (item.end) return location.pathname === path
+  return location.pathname === path || location.pathname.startsWith(`${path}/`)
+}
+
+/** Entrées toujours visibles dans la barre de navigation mobile. */
+export const MOBILE_PRIMARY_PATHS = ['/', '/ventes', '/produits', '/clients'] as const
+
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Tableau de bord', to: '/', icon: LayoutDashboard, end: true },
   { label: 'Produits', to: '/produits', icon: Package },

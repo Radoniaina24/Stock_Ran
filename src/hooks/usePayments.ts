@@ -8,8 +8,10 @@ import {
 import { useAuth } from './useAuth'
 import { invalidateSalesQueries } from './salesQueries'
 import type { Payment, PaymentFilters, PaymentRow } from '../types/database'
+import { summarizePayments, type PaymentSummary } from '../lib/sales'
 import {
   cancelPayment,
+  fetchPaymentSummaryRows,
   listPayments,
   listSalePayments,
   recordPayment,
@@ -29,6 +31,20 @@ export function usePayments(
     enabled: Boolean(userId),
     placeholderData: keepPreviousData,
     queryFn: () => listPayments(userId, filters, { page, pageSize }),
+  })
+}
+
+/** Montants encaissés et compteurs par moyen pour les filtres courants. */
+export function usePaymentSummary(filters: PaymentFilters): UseQueryResult<PaymentSummary> {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+  const { search, clientId, from, to } = filters
+
+  return useQuery({
+    queryKey: ['payments', userId, 'summary', { search, clientId, from, to }],
+    enabled: Boolean(userId),
+    placeholderData: keepPreviousData,
+    queryFn: async () => summarizePayments(await fetchPaymentSummaryRows(userId, filters)),
   })
 }
 

@@ -64,38 +64,42 @@ function toRow(row: PaymentEmbed): PaymentRow {
   }
 }
 
-export async function listPayments(
+/**
+ * La recherche porte sur la référence du paiement ou le nom du client
+ * (les identifiants sont résolus au préalable, une virgule casserait
+ * la syntaxe des filtres PostgREST).
+ */
+async function resolveSearchClientIds(userId: string, search: string): Promise<string[]> {
+  if (!search) return []
+  const { data, error } = await supabase
+    .from('clients')
+    .select('id')
+    .eq('user_id', userId)
+    .or(`name.ilike.%${search}%,code.ilike.%${search}%`)
+    .limit(100)
+
+  if (error) throw error
+  return (data ?? []).map((row) => row.id as string)
+}
+
+function filteredPaymentQuery(
   userId: string,
   filters: PaymentFilters,
-  options: { page?: number; pageSize?: number } = {},
-): Promise<PaymentListResult> {
-  const page = options.page ?? 1
-  const pageSize = options.pageSize ?? 20
-  const from = (page - 1) * pageSize
-  const to = from + pageSize - 1
+  clientIds: string[],
+  columns: string,
+  withCount: boolean,
+) {
   const search = sanitizeSearch(filters.search)
 
   let query = supabase
     .from('payments')
-    .select(PAYMENT_SELECT, { count: 'exact' })
+    .select(columns, withCount ? { count: 'exact' } : undefined)
     .eq('user_id', userId)
 
   if (search) {
-    // La recherche porte sur la référence du paiement ou le nom du client
-    // (les identifiants sont résolus au préalable, une virgule casserait
-    // la syntaxe des filtres PostgREST).
-    const { data: clients, error: clientsError } = await supabase
-      .from('clients')
-      .select('id')
-      .eq('user_id', userId)
-      .or(`name.ilike.%${search}%,code.ilike.%${search}%`)
-      .limit(100)
-
-    if (clientsError) throw clientsError
-    const ids = (clients ?? []).map((row) => row.id)
     query = query.or(
-      ids.length > 0
-        ? `reference.ilike.%${search}%,client_id.in.(${ids.join(',')})`
+      clientIds.length > 0
+        ? `reference.ilike.%${search}%,client_id.in.(${clientIds.join(',')})`
         : `reference.ilike.%${search}%`,
     )
   }
@@ -108,15 +112,64 @@ export async function listPayments(
     query = query.lte('paid_at', new Date(`${filters.to}T23:59:59.999`).toISOString())
   }
 
-  const { data, error, count } = await query
+  return query
+}
+
+export async function listPayments(
+  userId: string,
+  filters: PaymentFilters,
+  options: { page?: number; pageSize?: number } = {},
+): Promise<PaymentListResult> {
+  const page = options.page ?? 1
+  const pageSize = options.pageSize ?? 20
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  const clientIds = await resolveSearchClientIds(userId, sanitizeSearch(filters.search))
+  const { data, error, count } = await filteredPaymentQuery(userId, filters, clientIds, PAYMENT_SELECT, true)
     .order('paid_at', { ascending: false })
     .range(from, to)
 
   if (error) throw error
   return {
-    data: ((data ?? []) as PaymentEmbed[]).map(toRow),
+    data: ((data ?? []) as unknown as PaymentEmbed[]).map(toRow),
     total: count ?? 0,
   }
+}
+
+export async function fetchPaymentsForExport(
+  userId: string,
+  filters: PaymentFilters,
+  limit = 5000,
+): Promise<PaymentRow[]> {
+  const clientIds = await resolveSearchClientIds(userId, sanitizeSearch(filters.search))
+  const { data, error } = await filteredPaymentQuery(userId, filters, clientIds, PAYMENT_SELECT, false)
+    .order('paid_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return ((data ?? []) as unknown as PaymentEmbed[]).map(toRow)
+}
+
+export type PaymentSummaryRow = Pick<Payment, 'amount' | 'payment_method' | 'status'>
+
+/** Montants et compteurs par moyen : mêmes filtres que la liste, sans le moyen. */
+export async function fetchPaymentSummaryRows(
+  userId: string,
+  filters: PaymentFilters,
+  limit = 5000,
+): Promise<PaymentSummaryRow[]> {
+  const clientIds = await resolveSearchClientIds(userId, sanitizeSearch(filters.search))
+  const { data, error } = await filteredPaymentQuery(
+    userId,
+    { ...filters, method: 'all' },
+    clientIds,
+    'amount, payment_method, status',
+    false,
+  ).limit(limit)
+
+  if (error) throw error
+  return (data ?? []) as unknown as PaymentSummaryRow[]
 }
 
 export async function listSalePayments(saleId: string): Promise<PaymentRow[]> {

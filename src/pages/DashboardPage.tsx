@@ -84,9 +84,13 @@ export function DashboardPage() {
               <RefreshCw className={cn('size-4', dashboard.isFetching && 'animate-spin')} />
               <span className="hidden sm:inline">Actualiser</span>
             </Button>
-            <Button onClick={() => navigate('/mouvements')} className="flex-1 sm:flex-none">
+            <Button variant="outline" onClick={() => navigate('/mouvements')} className="flex-1 sm:flex-none">
+              <ArrowLeftRight className="size-4" />
+              Mouvement
+            </Button>
+            <Button onClick={() => navigate('/ventes?nouvelle=1')} className="flex-1 sm:flex-none">
               <Plus className="size-4" />
-              Nouveau mouvement
+              Nouvelle vente
             </Button>
           </>
         }

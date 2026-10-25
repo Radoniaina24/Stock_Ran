@@ -1,12 +1,9 @@
 ﻿import { useId, useMemo, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CircleDollarSign, Loader2, Plus, ShoppingCart, Trash2 } from 'lucide-react'
-import {
-  PAYMENT_METHODS,
-  PAYMENT_METHOD_LABELS,
-  type Product,
-} from '../../types/database'
+import { CircleDollarSign, Loader2, Plus, ShoppingCart, Trash2, TriangleAlert } from 'lucide-react'
+import type { Product } from '../../types/database'
 import {
   SALE_DEFAULT_VALUES,
   computeSubtotal,
@@ -19,15 +16,17 @@ import { useSaleMutations } from '../../hooks/useSales'
 import { useActiveProducts } from '../../hooks/useProducts'
 import { useClientOptions } from '../../hooks/useClients'
 import { supabaseErrorMessage } from '../../lib/supabase'
-import { formatAmount, formatQuantity } from '../../lib/utils'
+import { TRANSACTION_HINTS } from '../../lib/sales'
+import { cn, formatAmount, formatQuantity } from '../../lib/utils'
 import { useToast } from '../ui/toast'
 import { Modal, ModalIcon } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Combobox } from '../ui/combobox'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
-import { Select } from '../ui/select'
 import { Textarea } from '../ui/textarea'
+import { PaymentMethodPicker } from './PaymentMethodPicker'
+import { PaymentStatusBadge } from './status-badges'
 
 export interface SaleFormDialogProps {
   /** Client présélectionné (depuis la page Créances clients). */
@@ -45,6 +44,7 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
   const toast = useToast()
   const formId = useId()
   const commentId = useId()
+  const methodName = useId()
   const { create } = useSaleMutations()
   const products = useActiveProducts()
   const clientOptions = useClientOptions()
@@ -64,6 +64,7 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
   const clientId = useWatch({ control: form.control, name: 'clientId' })
   const discountAmount = useWatch({ control: form.control, name: 'discountAmount' })
   const paymentAmount = useWatch({ control: form.control, name: 'paymentAmount' })
+  const paymentMethod = useWatch({ control: form.control, name: 'paymentMethod' }) ?? 'cash'
 
   const { errors } = form.formState
   const itemsRootError = (
@@ -80,6 +81,11 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
     }))
   }, [products])
 
+  const productsById = useMemo(
+    () => new Map((products.data ?? []).map((product: Product) => [product.id, product])),
+    [products.data],
+  )
+
   const usedProductIds = useMemo(
     () => new Set((items ?? []).map((line) => line.productId).filter(Boolean)),
     [items],
@@ -89,6 +95,11 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
   const discount = Math.min(parseNumberInput(discountAmount), subtotal)
   const netTotal = Math.round((subtotal - discount) * 100) / 100
   const immediatePayment = Math.min(parseNumberInput(paymentAmount), netTotal)
+  const previewStatus =
+    netTotal <= 0 || immediatePayment >= netTotal ? 'paid' : immediatePayment > 0 ? 'partial' : 'unpaid'
+
+  const setPaymentAmount = (value: number) =>
+    form.setValue('paymentAmount', String(value), { shouldDirty: true, shouldValidate: true })
 
   const addLine = () => append({ productId: '', quantity: '1', unitPrice: '0' })
 
@@ -175,10 +186,34 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
               }))}
               value={clientId}
               onChange={(value) => form.setValue('clientId', value, { shouldDirty: true })}
-              placeholder="Rechercher un client…"
-              emptyText="Aucun client trouvé"
+              placeholder={clientOptions.isLoading ? 'Chargement des clients…' : 'Rechercher un client…'}
+              emptyText={
+                (clientOptions.data ?? []).length === 0
+                  ? 'Aucun client actif : ajoutez-en un dans la page Clients.'
+                  : 'Aucun client ne correspond à la recherche'
+              }
+              disabled={clientOptions.isLoading}
               invalid={Boolean(errors.clientId)}
             />
+            {clientOptions.isError ? (
+              <p role="alert" className="flex flex-wrap items-center gap-2 text-xs font-medium text-danger">
+                Impossible de charger la liste des clients.
+                <button
+                  type="button"
+                  onClick={() => void clientOptions.refetch()}
+                  className="cursor-pointer underline underline-offset-2"
+                >
+                  Réessayer
+                </button>
+              </p>
+            ) : !clientOptions.isLoading && (clientOptions.data ?? []).length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Aucun client actif.{' '}
+                <Link to="/clients" onClick={onClose} className="font-medium text-primary hover:underline">
+                  Ajouter un client
+                </Link>
+              </p>
+            ) : null}
           </FormField>
 
           <FormField label="Date de vente" htmlFor="sale-date" required error={errors.saleDate?.message}>
@@ -211,11 +246,16 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
               const line = items?.[index]
               const quantity = line?.quantity ?? '1'
               const unitPrice = line?.unitPrice ?? '0'
+              const product = line?.productId ? productsById.get(line.productId) : undefined
+              const shortage = product ? parseNumberInput(quantity) > Number(product.quantity) : false
 
               return (
                 <div
                   key={field.id}
-                  className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3 sm:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                  className={cn(
+                    'grid gap-3 rounded-xl border bg-muted/30 p-3 sm:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]',
+                    shortage ? 'border-warning/50' : 'border-border',
+                  )}
                 >
                   <FormField
                     label="Produit"
@@ -234,7 +274,7 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
                   </FormField>
 
                   <FormField
-                    label="Quantité"
+                    label={product ? `Quantité (${product.unit})` : 'Quantité'}
                     htmlFor={`sale-qty-${index}`}
                     error={errors.items?.[index]?.quantity?.message}
                   >
@@ -280,6 +320,13 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
+
+                  {shortage && product ? (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-warning sm:col-span-full">
+                      <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+                      Stock insuffisant — disponible : {formatQuantity(product.quantity)} {product.unit}.
+                    </p>
+                  ) : null}
                 </div>
               )
             })}
@@ -324,65 +371,88 @@ export function SaleFormDialog({ initialClientId, onClose }: SaleFormDialogProps
         </div>
 
         <div className="space-y-4 rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2">
-            <CircleDollarSign className="size-4 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm font-semibold text-foreground">Encaissement initial</p>
-            <span className="text-xs text-muted-foreground">(facultatif)</span>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              label="Montant encaissé"
-              htmlFor="sale-payment-amount"
-              error={errors.paymentAmount?.message}
-            >
-              <Input
-                id="sale-payment-amount"
-                inputMode="decimal"
-                className="tabular-nums"
-                aria-invalid={Boolean(errors.paymentAmount)}
-                {...form.register('paymentAmount')}
-              />
-            </FormField>
-
-            <FormField
-              label="Moyen de paiement"
-              htmlFor="sale-payment-method"
-              error={errors.paymentMethod?.message}
-            >
-              <Select
-                id="sale-payment-method"
-                aria-invalid={Boolean(errors.paymentMethod)}
-                {...form.register('paymentMethod')}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <CircleDollarSign className="size-4 text-muted-foreground" aria-hidden="true" />
+              <p className="text-sm font-semibold text-foreground">Encaissement</p>
+            </div>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                variant={immediatePayment >= netTotal && netTotal > 0 ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPaymentAmount(netTotal)}
+                disabled={netTotal <= 0}
               >
-                {PAYMENT_METHODS.map((method) => (
-                  <option key={method} value={method}>
-                    {PAYMENT_METHOD_LABELS[method]}
-                  </option>
-                ))}
-              </Select>
-            </FormField>
+                Payé comptant
+              </Button>
+              <Button
+                type="button"
+                variant={immediatePayment <= 0 ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPaymentAmount(0)}
+              >
+                À crédit
+              </Button>
+            </div>
           </div>
 
           <FormField
-            label="Référence de transaction"
-            htmlFor="sale-payment-reference"
-            error={errors.transactionReference?.message}
-            hint="Facultatif — numéro de transaction Mobile Money, chèque…"
+            label="Montant encaissé maintenant"
+            htmlFor="sale-payment-amount"
+            error={errors.paymentAmount?.message}
           >
-            <Input
-              id="sale-payment-reference"
-              maxLength={60}
-              autoComplete="off"
-              aria-invalid={Boolean(errors.transactionReference)}
-              {...form.register('transactionReference')}
-            />
+            <div className="relative">
+              <Input
+                id="sale-payment-amount"
+                inputMode="decimal"
+                className="pe-10 tabular-nums"
+                aria-invalid={Boolean(errors.paymentAmount)}
+                {...form.register('paymentAmount')}
+              />
+              <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center text-sm text-muted-foreground">
+                Ar
+              </span>
+            </div>
           </FormField>
 
-          <p className="text-xs text-muted-foreground tabular-nums">
-            Encaissé avec cette vente : <strong>{formatAmount(immediatePayment)}</strong> — reste dû{' '}
-            <strong>{formatAmount(netTotal - immediatePayment)}</strong>.
-          </p>
+          {immediatePayment > 0 ? (
+            <>
+              <FormField label="Moyen de paiement" error={errors.paymentMethod?.message}>
+                <PaymentMethodPicker
+                  name={methodName}
+                  value={paymentMethod}
+                  onChange={(value) => form.setValue('paymentMethod', value, { shouldDirty: true })}
+                  invalid={Boolean(errors.paymentMethod)}
+                />
+              </FormField>
+
+              <FormField
+                label="Référence de transaction"
+                htmlFor="sale-payment-reference"
+                error={errors.transactionReference?.message}
+                hint={TRANSACTION_HINTS[paymentMethod]}
+              >
+                <Input
+                  id="sale-payment-reference"
+                  maxLength={60}
+                  autoComplete="off"
+                  aria-invalid={Boolean(errors.transactionReference)}
+                  {...form.register('transactionReference')}
+                />
+              </FormField>
+            </>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground tabular-nums">
+            <span>
+              Encaissé : <strong className="text-foreground">{formatAmount(immediatePayment)}</strong> · reste dû{' '}
+              <strong className={netTotal - immediatePayment > 0 ? 'text-danger' : 'text-foreground'}>
+                {formatAmount(Math.max(0, netTotal - immediatePayment))}
+              </strong>
+            </span>
+            {subtotal > 0 ? <PaymentStatusBadge status={previewStatus} /> : null}
+          </div>
         </div>
 
         <FormField

@@ -6,15 +6,11 @@ import {
   ReceiptText,
   ShoppingBag,
 } from 'lucide-react'
-import {
-  PAYMENT_METHOD_LABELS,
-  type PaymentRow,
-  type SaleBalance,
-} from '../../types/database'
+import type { PaymentRow, SaleBalance } from '../../types/database'
 import { useSale, useSaleItems, useSaleMutations } from '../../hooks/useSales'
 import { useSalePayments, usePaymentMutations } from '../../hooks/usePayments'
 import { supabaseErrorMessage } from '../../lib/supabase'
-import { cn, formatAmount, formatDate, formatQuantity } from '../../lib/utils'
+import { cn, formatAmount, formatDate, formatDay, formatQuantity } from '../../lib/utils'
 import { useToast } from '../ui/toast'
 import { Modal, ModalIcon } from '../ui/dialog'
 import { Badge } from '../ui/badge'
@@ -33,6 +29,7 @@ import { EmptyState, LoadingState } from '../ui/states'
 import { PaymentFormDialog } from './PaymentFormDialog'
 import {
   PaymentMethodBadge,
+  PaymentProgress,
   PaymentRecordStatusBadge,
   PaymentStatusBadge,
   SaleStatusBadge,
@@ -119,7 +116,7 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
         }
         description={
           data
-            ? `${data.client_name ?? 'Client supprimé'} — ${formatDate(data.sale_date)}`
+            ? `${data.client_name ?? 'Client supprimé'} — ${formatDay(data.sale_date)}`
             : undefined
         }
         footer={
@@ -137,10 +134,12 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
                   <Ban className="size-4" />
                   Annuler la vente
                 </Button>
-                <Button onClick={() => setPaymentOpen(true)} disabled={!canPay}>
-                  <Banknote className="size-4" />
-                  Encaisser
-                </Button>
+                {canPay ? (
+                  <Button onClick={() => setPaymentOpen(true)}>
+                    <Banknote className="size-4" />
+                    Encaisser
+                  </Button>
+                ) : null}
               </>
             )}
           </>
@@ -160,21 +159,47 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
               ) : null}
             </div>
 
+            <div className="rounded-xl border border-border bg-muted/40 p-4">
+              <dl className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Montant net</dt>
+                  <dd className="mt-0.5 text-base font-semibold tabular-nums text-foreground">
+                    {formatAmount(data.total_amount)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Encaissé</dt>
+                  <dd className="mt-0.5 text-base font-semibold tabular-nums text-success">
+                    {formatAmount(data.paid_amount)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Reste dû</dt>
+                  <dd
+                    className={cn(
+                      'mt-0.5 text-base font-semibold tabular-nums',
+                      data.balance_due > 0 ? 'text-danger' : 'text-foreground',
+                    )}
+                  >
+                    {formatAmount(data.balance_due)}
+                  </dd>
+                </div>
+              </dl>
+              <PaymentProgress
+                className="mt-3"
+                paid={Number(data.paid_amount)}
+                total={Number(data.total_amount)}
+                cancelled={isCancelled}
+              />
+            </div>
+
             <dl className="divide-y divide-border rounded-xl border border-border px-4">
               <Row label="Client" value={`${data.client_code ?? ''} ${data.client_name ?? ''}`.trim() || '—'} />
-              <Row label="Date de vente" value={formatDate(data.sale_date)} />
+              <Row label="Date de vente" value={formatDay(data.sale_date)} />
               <Row label="Montant brut" value={formatAmount(data.subtotal)} />
-              <Row label="Remise" value={formatAmount(data.discount_amount)} />
-              <Row label="Montant net" value={<strong>{formatAmount(data.total_amount)}</strong>} />
-              <Row label="Encaissé" value={formatAmount(data.paid_amount)} />
-              <Row
-                label="Reste dû"
-                value={
-                  <span className={cn(data.balance_due > 0 ? 'text-danger' : 'text-success')}>
-                    {formatAmount(data.balance_due)}
-                  </span>
-                }
-              />
+              {Number(data.discount_amount) > 0 ? (
+                <Row label="Remise" value={<span className="text-warning">− {formatAmount(data.discount_amount)}</span>} />
+              ) : null}
               {data.comment ? <Row label="Commentaire" value={data.comment} /> : null}
             </dl>
 
@@ -280,9 +305,6 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
                   ))}
                 </ul>
               )}
-              <p className="text-xs text-muted-foreground">
-                Moyens acceptés : {Object.values(PAYMENT_METHOD_LABELS).join(', ')}.
-              </p>
             </section>
           </div>
         )}

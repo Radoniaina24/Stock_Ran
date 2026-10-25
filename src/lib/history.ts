@@ -28,10 +28,15 @@ export function matchPreset(from: string, to: string, now = new Date()): DatePre
 }
 
 /** Regroupe des éléments déjà triés par date en conservant leur ordre. */
-export function groupByDay<T extends { created_at: string }>(rows: T[]): { date: string; items: T[] }[] {
+export function groupByDay<T extends { created_at: string }>(rows: T[]): { date: string; items: T[] }[]
+export function groupByDay<T>(rows: T[], getDate: (row: T) => string): { date: string; items: T[] }[]
+export function groupByDay<T>(
+  rows: T[],
+  getDate: (row: T) => string = (row) => (row as { created_at: string }).created_at,
+): { date: string; items: T[] }[] {
   const groups: { date: string; items: T[] }[] = []
   for (const row of rows) {
-    const date = toDateInputValue(row.created_at)
+    const date = toDateInputValue(getDate(row))
     const last = groups[groups.length - 1]
     if (last && last.date === date) last.items.push(row)
     else groups.push({ date, items: [row] })

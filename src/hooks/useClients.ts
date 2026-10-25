@@ -12,12 +12,25 @@ import type { ClientFormPayload } from '../schemas/client'
 import {
   createClient,
   deleteClient,
+  fetchClientSummary,
   getClient,
   listClientOptions,
   listClients,
   updateClient,
   type ClientOption,
+  type ClientSummary,
 } from '../services/clients'
+
+export function useClientSummary(): UseQueryResult<ClientSummary> {
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+
+  return useQuery({
+    queryKey: ['clients', userId, 'summary'],
+    enabled: Boolean(userId),
+    queryFn: () => fetchClientSummary(userId),
+  })
+}
 
 export function useClients(filters: ClientFilters): UseQueryResult<{
   data: ClientBalance[]
@@ -41,7 +54,7 @@ export function useClientOptions(): UseQueryResult<ClientOption[]> {
   return useQuery({
     queryKey: ['client-options', userId],
     enabled: Boolean(userId),
-    staleTime: 30_000,
+    refetchOnMount: 'always',
     queryFn: () => listClientOptions(userId),
   })
 }

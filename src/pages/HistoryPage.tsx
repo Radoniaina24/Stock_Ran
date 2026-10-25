@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { createColumnHelper } from '@tanstack/react-table'
-import { ArrowRight, ChevronRight, Download, FilterX, Loader2, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowRight, ChevronRight, Download, FilterX, Loader2, SlidersHorizontal } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -9,6 +9,7 @@ import { Combobox, type ComboboxOption } from '../components/ui/combobox'
 import { DataTable } from '../components/ui/data-table'
 import type { DataTableFeatures } from '../components/ui/data-table-features'
 import { EmptyState, ErrorState } from '../components/ui/states'
+import { FilterChip } from '../components/ui/filter-chip'
 import { FormField } from '../components/ui/form-field'
 import { Input } from '../components/ui/input'
 import { Pagination } from '../components/ui/pagination'
@@ -253,22 +254,6 @@ function HistorySkeleton() {
         ))}
       </div>
     </SkeletonGroup>
-  )
-}
-
-function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-card py-1 ps-3 pe-1 text-xs font-medium text-foreground">
-      <span className="truncate">{label}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Retirer le filtre ${label}`}
-        className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <X className="size-3" />
-      </button>
-    </span>
   )
 }
 

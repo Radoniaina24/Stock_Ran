@@ -42,6 +42,20 @@ export function formatDate(value: string | Date | null | undefined): string {
   }).format(date)
 }
 
+const dayFormat = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+
+/**
+ * Date calendaire « AAAA-MM-JJ » (sans heure) : lue en heure locale pour
+ * ne pas glisser d'un jour ni afficher une heure fictive.
+ */
+export function formatDay(value: string | null | undefined): string {
+  if (!value) return '—'
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  if (!match) return '—'
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return Number.isNaN(date.getTime()) ? '—' : dayFormat.format(date)
+}
+
 export function formatDateRange(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value
   if (Number.isNaN(date.getTime())) return '—'

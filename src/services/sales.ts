@@ -64,6 +64,32 @@ function applySaleFilters(query: ReturnType<typeof buildQuery>, filters: SaleFil
   return next
 }
 
+export type SaleSummaryRow = Pick<
+  SaleBalance,
+  'status' | 'payment_status' | 'total_amount' | 'paid_amount' | 'balance_due'
+>
+
+/**
+ * Lignes légères servant aux compteurs par onglet et aux montants de la
+ * période : mêmes filtres que la liste, sans le filtre de statut.
+ */
+export async function fetchSaleSummaryRows(
+  userId: string,
+  filters: SaleFilters,
+  limit = 5000,
+): Promise<SaleSummaryRow[]> {
+  const { data, error } = await applySaleFilters(
+    supabase
+      .from('sale_balances')
+      .select('status, payment_status, total_amount, paid_amount, balance_due')
+      .eq('user_id', userId) as unknown as ReturnType<typeof buildQuery>,
+    { ...filters, status: 'all', paymentStatus: 'all' },
+  ).limit(limit)
+
+  if (error) throw error
+  return (data ?? []) as unknown as SaleSummaryRow[]
+}
+
 function buildQuery() {
   return supabase.from('sale_balances').select('*', { count: 'exact' })
 }
