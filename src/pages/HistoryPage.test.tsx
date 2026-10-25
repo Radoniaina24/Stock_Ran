@@ -37,7 +37,7 @@ vi.mock('../hooks/useProducts', () => ({
 }))
 
 vi.mock('../hooks/useAuth', () => ({
-  useAuth: () => ({ user: { id: 'u1', email: 'gestion@exemple.fr' } }),
+  useAuth: () => ({ user: { id: 'u1', email: 'gestion@exemple.fr' }, workspaceId: 'u1' }),
 }))
 
 vi.mock('../hooks/useDebounce', () => ({ useDebounce: <T,>(value: T) => value }))

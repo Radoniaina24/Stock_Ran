@@ -99,6 +99,8 @@ npm run dev
    | 4 | `supabase/migrations/0004_realtime.sql` | publication temps réel pour la synchronisation entre onglets |
    | 5 | `supabase/migrations/0005_sales_schema.sql` | tables `clients`, `sales`, `sale_items`, `payments`, colonne `sale_price`, compteurs de références, RLS |
    | 6 | `supabase/migrations/0006_sales_functions.sql` | vues `sale_balances` / `client_balances` et RPC `create_sale`, `record_payment`, `cancel_payment`, `cancel_sale`, `sales_overview` |
+   | 7 | `supabase/migrations/0007_shared_workspace.sql` | espace de travail partagé : table `workspace_members`, fonction `current_workspace_id()`, RLS et RPC filtrés par espace |
+   | 8 | `supabase/migrations/0008_auto_join_workspace.sql` | tout nouveau compte rejoint automatiquement l'espace du premier compte créé |
 
 5. Relancer `npm run dev`.
 
@@ -111,7 +113,7 @@ ne conserver que le compte propriétaire.
 
 ```
 supabase/
-  migrations/            SQL reproductible (0001 → 0006)
+  migrations/            SQL reproductible (0001 → 0008)
   tests/                 scripts de tests SQL (stock et ventes)
 src/
   components/

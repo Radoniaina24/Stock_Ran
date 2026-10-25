@@ -13,6 +13,8 @@ import { isSupabaseConfigured, supabase, supabaseErrorMessage } from '../lib/sup
 interface AuthContextValue {
   session: Session | null
   user: User | null
+  /** Propriétaire des données visibles : le compte lui-même ou l'espace auquel il est rattaché. */
+  workspaceId: string | null
   loading: boolean
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<string | null>
@@ -54,6 +56,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const userId = session?.user.id ?? null
+  const [workspace, setWorkspace] = useState<{ userId: string; id: string } | null>(null)
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    void supabase.rpc('current_workspace_id').then(({ data, error }) => {
+      if (cancelled) return
+      setWorkspace({ userId, id: !error && typeof data === 'string' ? data : userId })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  const workspaceId = userId && workspace?.userId === userId ? workspace.id : null
+
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return error ? supabaseErrorMessage(error) : null
@@ -73,13 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       user: session?.user ?? null,
+      workspaceId,
       loading,
       isConfigured: isSupabaseConfigured,
       signIn,
       signOut,
       updatePassword,
     }),
-    [session, loading, signIn, signOut, updatePassword],
+    [session, workspaceId, loading, signIn, signOut, updatePassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

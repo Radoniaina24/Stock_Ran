@@ -9,6 +9,7 @@ const auth = vi.hoisted(() => ({ updatePassword: vi.fn(), signOut: vi.fn() }))
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({
     user: { id: 'u1', email: 'jean.dupont@exemple.fr', created_at: '2026-01-15T10:00:00Z' },
+    workspaceId: 'u1',
     updatePassword: auth.updatePassword,
     signOut: auth.signOut,
   }),

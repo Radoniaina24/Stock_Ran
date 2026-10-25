@@ -19,9 +19,9 @@ const SALES_TABLES = ['clients', 'sales', 'payments'] as const
  * événements émis pendant la déconnexion ne sont pas rejoués.
  */
 export function useRealtimeSync(): SyncStatus {
-  const { user } = useAuth()
+  const { workspaceId } = useAuth()
   const queryClient = useQueryClient()
-  const userId = user?.id
+  const userId = workspaceId
   const [status, setStatus] = useState<SyncStatus>('connecting')
 
   useEffect(() => {

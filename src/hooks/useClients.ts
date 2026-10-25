@@ -22,8 +22,8 @@ import {
 } from '../services/clients'
 
 export function useClientSummary(): UseQueryResult<ClientSummary> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['clients', userId, 'summary'],
@@ -36,8 +36,8 @@ export function useClients(filters: ClientFilters): UseQueryResult<{
   data: ClientBalance[]
   total: number
 }> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['clients', userId, filters],
@@ -48,8 +48,8 @@ export function useClients(filters: ClientFilters): UseQueryResult<{
 }
 
 export function useClientOptions(): UseQueryResult<ClientOption[]> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['client-options', userId],
@@ -60,8 +60,8 @@ export function useClientOptions(): UseQueryResult<ClientOption[]> {
 }
 
 export function useClient(clientId: string | undefined): UseQueryResult<Client> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['clients', userId, 'detail', clientId],
@@ -71,8 +71,8 @@ export function useClient(clientId: string | undefined): UseQueryResult<Client> 
 }
 
 export function useClientMutations() {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
   const queryClient = useQueryClient()
 
   const invalidate = () => invalidateSalesQueries(queryClient)

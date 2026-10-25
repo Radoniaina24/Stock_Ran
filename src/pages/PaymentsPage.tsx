@@ -303,7 +303,7 @@ function BreakdownSkeleton() {
 
 export function PaymentsPage() {
   const toast = useToast()
-  const { user } = useAuth()
+  const { workspaceId } = useAuth()
 
   const [search, setSearch] = useState('')
   const [method, setMethod] = useState<MethodView>('all')
@@ -360,10 +360,10 @@ export function PaymentsPage() {
   }
 
   const handleExport = async () => {
-    if (!user) return
+    if (!workspaceId) return
     setExporting(true)
     try {
-      const data = await fetchPaymentsForExport(user.id, filters)
+      const data = await fetchPaymentsForExport(workspaceId, filters)
       if (data.length === 0) {
         toast.info('Aucun paiement à exporter avec ces filtres.')
         return

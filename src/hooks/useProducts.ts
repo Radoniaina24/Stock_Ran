@@ -22,8 +22,8 @@ import {
 } from '../services/products'
 
 export function useProducts(filters: ProductFilters): UseQueryResult<ProductListResult> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['products', userId, filters],
@@ -34,8 +34,8 @@ export function useProducts(filters: ProductFilters): UseQueryResult<ProductList
 }
 
 export function useCategories() {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['product-categories', userId],
@@ -46,8 +46,8 @@ export function useCategories() {
 }
 
 export function useActiveProducts() {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['products-active', userId],
@@ -58,8 +58,8 @@ export function useActiveProducts() {
 }
 
 export function useProductOptions() {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['product-options', userId],
@@ -70,8 +70,8 @@ export function useProductOptions() {
 }
 
 export function useProductMutations() {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
   const queryClient = useQueryClient()
 
   const invalidate = () => invalidateStockQueries(queryClient)

@@ -25,8 +25,8 @@ export function useMovements(
   page = 1,
   pageSize = 20,
 ): UseQueryResult<{ data: StockMovement[]; total: number }> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['movements', userId, filters, page, pageSize],
@@ -38,8 +38,8 @@ export function useMovements(
 
 /** Compteurs par type pour les filtres donnés (le filtre de type est ignoré). */
 export function useMovementCounts(filters: MovementFilters): UseQueryResult<MovementCounts> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
   const criteria = { ...filters, type: 'all' as const }
 
   return useQuery({
@@ -59,8 +59,8 @@ export async function fetchMovementsExport(
 }
 
 export function useRecentMovements(limit = 8) {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['movements-recent', userId, limit],

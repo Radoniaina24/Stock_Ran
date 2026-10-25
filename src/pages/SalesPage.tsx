@@ -262,7 +262,7 @@ function SaleCard({
 
 export function SalesPage() {
   const toast = useToast()
-  const { user } = useAuth()
+  const { workspaceId } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
@@ -337,10 +337,10 @@ export function SalesPage() {
   }
 
   const handleExport = async () => {
-    if (!user) return
+    if (!workspaceId) return
     setExporting(true)
     try {
-      const data = await fetchSalesForExport(user.id, filters)
+      const data = await fetchSalesForExport(workspaceId, filters)
       if (data.length === 0) {
         toast.info('Aucune vente à exporter avec ces filtres.')
         return

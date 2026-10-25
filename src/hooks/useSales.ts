@@ -26,8 +26,8 @@ export function useSales(
   page = 1,
   pageSize = 20,
 ): UseQueryResult<{ data: SaleBalance[]; total: number }> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['sales', userId, filters, page, pageSize],
@@ -39,8 +39,8 @@ export function useSales(
 
 /** Compteurs par onglet et montants pour les filtres courants (hors statut). */
 export function useSaleSummary(filters: SaleFilters): UseQueryResult<SaleSummary> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
   const { search, clientId, from, to } = filters
 
   return useQuery({
@@ -52,8 +52,8 @@ export function useSaleSummary(filters: SaleFilters): UseQueryResult<SaleSummary
 }
 
 export function useSale(saleId: string | undefined): UseQueryResult<SaleBalance> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['sales', userId, 'detail', saleId],
@@ -63,8 +63,8 @@ export function useSale(saleId: string | undefined): UseQueryResult<SaleBalance>
 }
 
 export function useSaleItems(saleId: string | undefined): UseQueryResult<SaleItem[]> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['sales', userId, 'items', saleId],
@@ -75,8 +75,8 @@ export function useSaleItems(saleId: string | undefined): UseQueryResult<SaleIte
 
 /** Ventes restant à encaisser (page Créances clients). */
 export function useOpenSales(): UseQueryResult<SaleBalance[]> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['sales', userId, 'open'],
@@ -86,8 +86,8 @@ export function useOpenSales(): UseQueryResult<SaleBalance[]> {
 }
 
 export function useSalesOverview(): UseQueryResult<SalesOverview> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['dashboard', userId, 'sales-overview'],

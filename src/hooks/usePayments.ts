@@ -23,8 +23,8 @@ export function usePayments(
   page = 1,
   pageSize = 20,
 ): UseQueryResult<{ data: PaymentRow[]; total: number }> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['payments', userId, filters, page, pageSize],
@@ -36,8 +36,8 @@ export function usePayments(
 
 /** Montants encaissés et compteurs par moyen pour les filtres courants. */
 export function usePaymentSummary(filters: PaymentFilters): UseQueryResult<PaymentSummary> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
   const { search, clientId, from, to } = filters
 
   return useQuery({
@@ -49,8 +49,8 @@ export function usePaymentSummary(filters: PaymentFilters): UseQueryResult<Payme
 }
 
 export function useSalePayments(saleId: string | undefined): UseQueryResult<PaymentRow[]> {
-  const { user } = useAuth()
-  const userId = user?.id ?? ''
+  const { workspaceId } = useAuth()
+  const userId = workspaceId ?? ''
 
   return useQuery({
     queryKey: ['payments', userId, 'sale', saleId],

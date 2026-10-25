@@ -259,7 +259,7 @@ function HistorySkeleton() {
 
 export function HistoryPage() {
   const toast = useToast()
-  const { user } = useAuth()
+  const { user, workspaceId } = useAuth()
   const [searchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
@@ -334,10 +334,10 @@ export function HistoryPage() {
           : ''
 
   const handleExport = async () => {
-    if (!user) return
+    if (!workspaceId) return
     setExporting(true)
     try {
-      const data = await fetchMovementsExport(user.id, filters)
+      const data = await fetchMovementsExport(workspaceId, filters)
       if (data.length === 0) {
         toast.info('Aucun mouvement à exporter avec ces filtres.')
         return

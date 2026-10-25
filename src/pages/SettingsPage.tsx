@@ -464,15 +464,15 @@ function SecurityCard() {
 
 function DataCard() {
   const toast = useToast()
-  const { user } = useAuth()
+  const { workspaceId } = useAuth()
   const [exporting, setExporting] = useState(false)
   const host = isSupabaseConfigured ? new URL(import.meta.env.VITE_SUPABASE_URL).host : null
 
   const handleExport = async () => {
-    if (!user) return
+    if (!workspaceId) return
     setExporting(true)
     try {
-      const data = await fetchMovementsExport(user.id, EMPTY_MOVEMENT_FILTERS)
+      const data = await fetchMovementsExport(workspaceId, EMPTY_MOVEMENT_FILTERS)
       if (data.length === 0) {
         toast.info('Aucun mouvement à exporter.')
         return
