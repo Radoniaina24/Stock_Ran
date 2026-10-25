@@ -28,6 +28,7 @@ import { useAuth } from '../hooks/useAuth'
 import { usePaymentMutations, usePaymentSummary, usePayments } from '../hooks/usePayments'
 import { useSale } from '../hooks/useSales'
 import { useDebounce } from '../hooks/useDebounce'
+import { useUserLabel } from '../hooks/useWorkspaceUsers'
 import { exportPaymentsCsv } from '../lib/csv'
 import { formatDayLabel, groupByDay } from '../lib/history'
 import type { PaymentSummary } from '../lib/sales'
@@ -304,6 +305,7 @@ function BreakdownSkeleton() {
 export function PaymentsPage() {
   const toast = useToast()
   const { workspaceId } = useAuth()
+  const userLabel = useUserLabel()
 
   const [search, setSearch] = useState('')
   const [method, setMethod] = useState<MethodView>('all')
@@ -368,7 +370,7 @@ export function PaymentsPage() {
         toast.info('Aucun paiement à exporter avec ces filtres.')
         return
       }
-      exportPaymentsCsv(data)
+      exportPaymentsCsv(data, userLabel)
       toast.success(`${data.length} paiement${data.length > 1 ? 's' : ''} exporté${data.length > 1 ? 's' : ''}.`)
     } catch (error) {
       toast.error(supabaseErrorMessage(error))

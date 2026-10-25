@@ -16,6 +16,7 @@ vi.mock('../hooks/useAuth', () => ({
 }))
 
 vi.mock('../hooks/useMovements', () => ({ fetchMovementsExport: vi.fn() }))
+vi.mock('../hooks/useWorkspaceUsers', () => ({ useUserLabel: () => () => '—' }))
 
 vi.mock('../components/ui/toast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),

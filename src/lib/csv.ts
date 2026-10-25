@@ -7,6 +7,10 @@ import {
   type StockMovement,
 } from '../types/database'
 
+type AuthorLabel = (userId: string | null) => string
+
+const rawAuthor: AuthorLabel = (userId) => userId ?? ''
+
 const TYPE_LABELS: Record<StockMovement['type'], string> = {
   entry: 'Entrée',
   exit: 'Sortie',
@@ -22,7 +26,7 @@ function escapeCell(value: unknown): string {
  * Convertit les mouvements en CSV (séparateur `;`, encodage UTF-8 avec BOM
  * pour être lisible directement dans Excel).
  */
-export function movementsToCsv(rows: StockMovement[]): string {
+export function movementsToCsv(rows: StockMovement[], authorLabel: AuthorLabel = rawAuthor): string {
   const header = [
     'Date et heure',
     'Référence produit',
@@ -47,7 +51,7 @@ export function movementsToCsv(rows: StockMovement[]): string {
       row.quantity_after,
       row.reason,
       row.comment ?? '',
-      row.created_by ?? '',
+      authorLabel(row.created_by),
     ]
       .map(escapeCell)
       .join(';'),
@@ -68,16 +72,16 @@ export function downloadTextFile(filename: string, content: string, mime: string
   URL.revokeObjectURL(url)
 }
 
-export function exportMovementsCsv(rows: StockMovement[]): void {
+export function exportMovementsCsv(rows: StockMovement[], authorLabel: AuthorLabel = rawAuthor): void {
   const stamp = new Date().toISOString().slice(0, 10)
-  downloadTextFile(`mouvements-${stamp}.csv`, movementsToCsv(rows), 'text/csv')
+  downloadTextFile(`mouvements-${stamp}.csv`, movementsToCsv(rows, authorLabel), 'text/csv')
 }
 
 function toCsv(header: string[], rows: unknown[][]): string {
   return [header, ...rows].map((cells) => cells.map(escapeCell).join(';')).join('\r\n')
 }
 
-export function salesToCsv(rows: SaleBalance[]): string {
+export function salesToCsv(rows: SaleBalance[], authorLabel: AuthorLabel = rawAuthor): string {
   return toCsv(
     [
       'Référence',
@@ -91,6 +95,8 @@ export function salesToCsv(rows: SaleBalance[]): string {
       'Reste dû',
       'Paiement',
       'Commentaire',
+      'Créée par',
+      'Annulée par',
     ],
     rows.map((row) => [
       row.reference,
@@ -104,13 +110,27 @@ export function salesToCsv(rows: SaleBalance[]): string {
       row.balance_due,
       PAYMENT_STATUS_LABELS[row.payment_status] ?? row.payment_status,
       row.comment ?? '',
+      authorLabel(row.created_by),
+      row.cancelled_by ? authorLabel(row.cancelled_by) : '',
     ]),
   )
 }
 
-export function paymentsToCsv(rows: PaymentRow[]): string {
+export function paymentsToCsv(rows: PaymentRow[], authorLabel: AuthorLabel = rawAuthor): string {
   return toCsv(
-    ['Référence', 'Date et heure', 'Vente', 'Client', 'Montant', 'Moyen', 'Transaction', 'Statut', 'Commentaire'],
+    [
+      'Référence',
+      'Date et heure',
+      'Vente',
+      'Client',
+      'Montant',
+      'Moyen',
+      'Transaction',
+      'Statut',
+      'Commentaire',
+      'Encaissé par',
+      'Annulé par',
+    ],
     rows.map((row) => [
       row.reference,
       new Date(row.paid_at).toLocaleString('fr-FR'),
@@ -121,16 +141,18 @@ export function paymentsToCsv(rows: PaymentRow[]): string {
       row.transaction_reference ?? '',
       PAYMENT_RECORD_STATUS_LABELS[row.status] ?? row.status,
       row.cancel_comment ?? row.comment ?? '',
+      authorLabel(row.created_by),
+      row.cancelled_by ? authorLabel(row.cancelled_by) : '',
     ]),
   )
 }
 
-export function exportSalesCsv(rows: SaleBalance[]): void {
+export function exportSalesCsv(rows: SaleBalance[], authorLabel: AuthorLabel = rawAuthor): void {
   const stamp = new Date().toISOString().slice(0, 10)
-  downloadTextFile(`ventes-${stamp}.csv`, salesToCsv(rows), 'text/csv')
+  downloadTextFile(`ventes-${stamp}.csv`, salesToCsv(rows, authorLabel), 'text/csv')
 }
 
-export function exportPaymentsCsv(rows: PaymentRow[]): void {
+export function exportPaymentsCsv(rows: PaymentRow[], authorLabel: AuthorLabel = rawAuthor): void {
   const stamp = new Date().toISOString().slice(0, 10)
-  downloadTextFile(`paiements-${stamp}.csv`, paymentsToCsv(rows), 'text/csv')
+  downloadTextFile(`paiements-${stamp}.csv`, paymentsToCsv(rows, authorLabel), 'text/csv')
 }

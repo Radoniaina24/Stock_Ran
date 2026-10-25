@@ -34,6 +34,7 @@ import {
 } from '../schemas/auth'
 import { useAuth } from '../hooks/useAuth'
 import { fetchMovementsExport } from '../hooks/useMovements'
+import { useUserLabel } from '../hooks/useWorkspaceUsers'
 import { DEFAULT_PREFERENCES, usePreferences, type Density } from '../hooks/usePreferences'
 import { exportMovementsCsv } from '../lib/csv'
 import { passwordChecks, passwordStrength } from '../lib/password'
@@ -465,6 +466,7 @@ function SecurityCard() {
 function DataCard() {
   const toast = useToast()
   const { workspaceId } = useAuth()
+  const userLabel = useUserLabel()
   const [exporting, setExporting] = useState(false)
   const host = isSupabaseConfigured ? new URL(import.meta.env.VITE_SUPABASE_URL).host : null
 
@@ -477,7 +479,7 @@ function DataCard() {
         toast.info('Aucun mouvement à exporter.')
         return
       }
-      exportMovementsCsv(data)
+      exportMovementsCsv(data, userLabel)
       toast.success(`${data.length} mouvement${data.length > 1 ? 's' : ''} exporté${data.length > 1 ? 's' : ''}.`)
     } catch (error) {
       toast.error(supabaseErrorMessage(error))

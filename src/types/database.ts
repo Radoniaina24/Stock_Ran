@@ -13,6 +13,7 @@ export interface Product {
   sale_price: number
   is_active: boolean
   stock_status: StockStatus
+  created_by: string | null
   created_at: string
   updated_at: string
 }
@@ -22,7 +23,7 @@ export interface ProductListItem extends Product {
   entered_quantity: number
 }
 
-export type NewProduct = Omit<Product, 'id' | 'user_id' | 'quantity' | 'created_at' | 'updated_at'> &
+export type NewProduct = Omit<Product, 'id' | 'user_id' | 'quantity' | 'created_by' | 'created_at' | 'updated_at'> &
   Partial<Pick<Product, 'quantity'>>
 
 export interface StockMovement {
@@ -151,6 +152,7 @@ export interface Client {
   email: string | null
   address: string | null
   is_active: boolean
+  created_by: string | null
   created_at: string
   updated_at: string
 }
@@ -178,6 +180,8 @@ export interface Sale {
   comment: string | null
   cancelled_at: string | null
   cancel_comment: string | null
+  created_by: string | null
+  cancelled_by: string | null
   created_at: string
   updated_at: string
 }
@@ -217,6 +221,8 @@ export interface Payment {
   comment: string | null
   cancelled_at: string | null
   cancel_comment: string | null
+  created_by: string | null
+  cancelled_by: string | null
   created_at: string
 }
 

@@ -25,7 +25,7 @@ function Detail({ icon: Icon, label, children }: { icon: typeof Tag; label: stri
 
 export interface MovementDetailsDialogProps {
   movement: StockMovement | null
-  userLabel: (movement: StockMovement) => string
+  userLabel: (userId: string | null) => string
   onClose: () => void
   onFilterProduct?: (movement: StockMovement) => void
 }
@@ -103,7 +103,7 @@ export function MovementDetailsDialog({ movement, userLabel, onClose, onFilterPr
               {fullDateFormat.format(new Date(movement.created_at))}
             </Detail>
             <Detail icon={UserRound} label="Enregistré par">
-              {userLabel(movement)}
+              {userLabel(movement.created_by)}
             </Detail>
             <Detail icon={Hash} label="Identifiant">
               <span className="font-mono text-xs text-muted-foreground">{movement.id}</span>

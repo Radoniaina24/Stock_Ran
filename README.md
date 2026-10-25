@@ -101,6 +101,7 @@ npm run dev
    | 6 | `supabase/migrations/0006_sales_functions.sql` | vues `sale_balances` / `client_balances` et RPC `create_sale`, `record_payment`, `cancel_payment`, `cancel_sale`, `sales_overview` |
    | 7 | `supabase/migrations/0007_shared_workspace.sql` | espace de travail partagé : table `workspace_members`, fonction `current_workspace_id()`, RLS et RPC filtrés par espace |
    | 8 | `supabase/migrations/0008_auto_join_workspace.sql` | tout nouveau compte rejoint automatiquement l'espace du premier compte créé |
+   | 9 | `supabase/migrations/0009_action_authors.sql` | auteur de chaque action (`created_by`, `cancelled_by`) et RPC `workspace_users()` |
 
 5. Relancer `npm run dev`.
 
@@ -113,7 +114,7 @@ ne conserver que le compte propriétaire.
 
 ```
 supabase/
-  migrations/            SQL reproductible (0001 → 0008)
+  migrations/            SQL reproductible (0001 → 0009)
   tests/                 scripts de tests SQL (stock et ventes)
 src/
   components/

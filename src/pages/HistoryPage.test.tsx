@@ -42,6 +42,10 @@ vi.mock('../hooks/useAuth', () => ({
 
 vi.mock('../hooks/useDebounce', () => ({ useDebounce: <T,>(value: T) => value }))
 
+vi.mock('../hooks/useWorkspaceUsers', () => ({
+  useUserLabel: () => (userId: string | null) => (userId === 'u1' ? 'gestion@exemple.fr' : '—'),
+}))
+
 vi.mock('../components/ui/toast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),
 }))

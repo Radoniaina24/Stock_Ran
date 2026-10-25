@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarPlus, ChevronRight, Mail, MapPin, Pencil, Phone, ShoppingCart } from 'lucide-react'
+import { CalendarPlus, ChevronRight, Mail, MapPin, Pencil, Phone, ShoppingCart, UserRound } from 'lucide-react'
 import { ClientAvatar } from './ClientAvatar'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
@@ -8,6 +8,7 @@ import { Modal } from '../ui/dialog'
 import { Skeleton } from '../ui/skeleton'
 import { PaymentProgress, PaymentStatusBadge } from '../sales/status-badges'
 import { useSales } from '../../hooks/useSales'
+import { useUserLabel } from '../../hooks/useWorkspaceUsers'
 import { paidRatio } from '../../lib/sales'
 import { cn, formatAmount, formatDay } from '../../lib/utils'
 import { EMPTY_SALE_FILTERS, type Client, type ClientBalance } from '../../types/database'
@@ -67,6 +68,7 @@ function ClientDetails({
   const recent = useSales({ ...EMPTY_SALE_FILTERS, clientId: client.id }, 1, RECENT_LIMIT)
   const sales = recent.data?.data ?? []
   const totalSales = recent.data?.total ?? 0
+  const userLabel = useUserLabel()
 
   const balance = Number(client.balance_due)
   const ratio = paidRatio(Number(client.total_paid), Number(client.total_sales))
@@ -146,6 +148,9 @@ function ClientDetails({
           </ContactItem>
           <ContactItem icon={CalendarPlus} label="Client depuis">
             {formatDay(client.created_at)}
+          </ContactItem>
+          <ContactItem icon={UserRound} label="Créé par">
+            {userLabel(client.created_by)}
           </ContactItem>
         </dl>
 

@@ -10,7 +10,7 @@ import { Skeleton, SkeletonGroup } from '../ui/skeleton'
 import { EmptyState, ErrorState } from '../ui/states'
 import { supabaseErrorMessage } from '../../lib/supabase'
 import { cn, formatDate, formatQuantity } from '../../lib/utils'
-import { useAuth } from '../../hooks/useAuth'
+import { useUserLabel, type UserLabel } from '../../hooks/useWorkspaceUsers'
 import { useRecentMovements } from '../../hooks/useMovements'
 import type { StockMovement } from '../../types/database'
 import { MovementBadge } from './MovementBadge'
@@ -18,7 +18,7 @@ import { MovementBadge } from './MovementBadge'
 const NO_MOVEMENTS: StockMovement[] = []
 const column = createColumnHelper<DataTableFeatures, StockMovement>()
 
-function buildRecentColumns(userEmail: string) {
+function buildRecentColumns(userLabel: UserLabel) {
   return column.columns([
     column.accessor('created_at', {
       header: 'Date et heure',
@@ -50,10 +50,12 @@ function buildRecentColumns(userEmail: string) {
       header: 'Motif',
       meta: { cellClassName: 'text-muted-foreground' },
     }),
-    column.display({
-      id: 'user',
+    column.accessor('created_by', {
       header: 'Utilisateur',
-      cell: () => <span title={userEmail}>{userEmail}</span>,
+      cell: (info) => {
+        const label = userLabel(info.getValue())
+        return <span title={label}>{label}</span>
+      },
       meta: {
         headerClassName: 'hidden sm:table-cell',
         cellClassName: 'hidden max-w-40 truncate text-muted-foreground sm:table-cell',
@@ -151,9 +153,8 @@ export interface RecentMovementsCardProps {
 export function RecentMovementsCard({ limit = 8, showHistoryLink = true }: RecentMovementsCardProps) {
   const recent = useRecentMovements(limit)
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const userEmail = user?.email ?? '—'
-  const columns = useMemo(() => buildRecentColumns(userEmail), [userEmail])
+  const userLabel = useUserLabel()
+  const columns = useMemo(() => buildRecentColumns(userLabel), [userLabel])
 
   return (
     <Card className="rounded-xl">

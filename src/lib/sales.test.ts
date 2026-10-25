@@ -27,6 +27,8 @@ function sale(overrides: Partial<SaleBalance>): SaleBalance {
     comment: null,
     cancelled_at: null,
     cancel_comment: null,
+    created_by: 'u1',
+    cancelled_by: null,
     created_at: '2026-10-20T08:00:00Z',
     updated_at: '2026-10-20T08:00:00Z',
     client_name: 'Épicerie Rasoa',

@@ -9,6 +9,7 @@ import {
 import type { PaymentRow, SaleBalance } from '../../types/database'
 import { useSale, useSaleItems, useSaleMutations } from '../../hooks/useSales'
 import { useSalePayments, usePaymentMutations } from '../../hooks/usePayments'
+import { useUserLabel } from '../../hooks/useWorkspaceUsers'
 import { supabaseErrorMessage } from '../../lib/supabase'
 import { cn, formatAmount, formatDate, formatDay, formatQuantity } from '../../lib/utils'
 import { useToast } from '../ui/toast'
@@ -57,6 +58,7 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
   const payments = useSalePayments(saleId)
   const { cancel } = useSaleMutations()
   const { cancel: cancelPayment } = usePaymentMutations()
+  const userLabel = useUserLabel()
 
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [cancelSaleOpen, setCancelSaleOpen] = useState(false)
@@ -201,6 +203,8 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
                 <Row label="Remise" value={<span className="text-warning">− {formatAmount(data.discount_amount)}</span>} />
               ) : null}
               {data.comment ? <Row label="Commentaire" value={data.comment} /> : null}
+              <Row label="Créée par" value={userLabel(data.created_by)} />
+              {isCancelled ? <Row label="Annulée par" value={userLabel(data.cancelled_by)} /> : null}
             </dl>
 
             <section className="space-y-2">
@@ -276,6 +280,10 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
                           {formatDate(payment.paid_at)}
                           {payment.transaction_reference ? ` · ${payment.transaction_reference}` : ''}
                           {payment.cancel_comment ? ` · ${payment.cancel_comment}` : ''}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Encaissé par {userLabel(payment.created_by)}
+                          {payment.status === 'cancelled' ? ` · annulé par ${userLabel(payment.cancelled_by)}` : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">

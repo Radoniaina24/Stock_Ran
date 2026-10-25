@@ -27,6 +27,7 @@ import {
 } from '../components/stock/movement-style'
 import { useAuth } from '../hooks/useAuth'
 import { useDebounce } from '../hooks/useDebounce'
+import { useUserLabel, type UserLabel } from '../hooks/useWorkspaceUsers'
 import { fetchMovementsExport, useMovementCounts, useMovements } from '../hooks/useMovements'
 import { useProductOptions } from '../hooks/useProducts'
 import { exportMovementsCsv } from '../lib/csv'
@@ -63,7 +64,7 @@ function capitalize(value: string) {
 
 const column = createColumnHelper<DataTableFeatures, StockMovement>()
 
-function buildHistoryColumns(onOpen: (movement: StockMovement) => void) {
+function buildHistoryColumns(onOpen: (movement: StockMovement) => void, userLabel: UserLabel) {
   return column.columns([
     column.accessor('created_at', {
       header: 'Date',
@@ -125,6 +126,21 @@ function buildHistoryColumns(onOpen: (movement: StockMovement) => void) {
           ) : null}
         </div>
       ),
+    }),
+    column.accessor('created_by', {
+      header: 'Par',
+      cell: (info) => {
+        const label = userLabel(info.getValue())
+        return (
+          <span className="block max-w-44 truncate" title={label}>
+            {label}
+          </span>
+        )
+      },
+      meta: {
+        headerClassName: 'hidden lg:table-cell',
+        cellClassName: 'hidden text-muted-foreground lg:table-cell',
+      },
     }),
     column.display({
       id: 'open',
@@ -259,7 +275,8 @@ function HistorySkeleton() {
 
 export function HistoryPage() {
   const toast = useToast()
-  const { user, workspaceId } = useAuth()
+  const { workspaceId } = useAuth()
+  const userLabel = useUserLabel()
   const [searchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
@@ -274,7 +291,7 @@ export function HistoryPage() {
   const [selected, setSelected] = useState<StockMovement | null>(null)
 
   const debouncedSearch = useDebounce(search, 300)
-  const columns = useMemo(() => buildHistoryColumns(setSelected), [])
+  const columns = useMemo(() => buildHistoryColumns(setSelected, userLabel), [userLabel])
 
   const filters = useMemo<MovementFilters>(
     () => ({ ...EMPTY_MOVEMENT_FILTERS, search: debouncedSearch, type, productId, reason, from, to }),
@@ -320,9 +337,6 @@ export function HistoryPage() {
       setTo('')
     })
 
-  const userLabel = (movement: StockMovement) =>
-    movement.created_by && movement.created_by === user?.id ? (user.email ?? 'Vous') : (movement.created_by ?? '—')
-
   const periodLabel = activePreset
     ? DATE_PRESETS.find((preset) => preset.value === activePreset)!.label
     : from && to
@@ -342,7 +356,7 @@ export function HistoryPage() {
         toast.info('Aucun mouvement à exporter avec ces filtres.')
         return
       }
-      exportMovementsCsv(data)
+      exportMovementsCsv(data, userLabel)
       toast.success(`${data.length} mouvement${data.length > 1 ? 's' : ''} exporté${data.length > 1 ? 's' : ''}.`)
     } catch (error) {
       toast.error(supabaseErrorMessage(error))

@@ -35,6 +35,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useClient } from '../hooks/useClients'
 import { useSaleSummary, useSales } from '../hooks/useSales'
 import { useDebounce } from '../hooks/useDebounce'
+import { useUserLabel } from '../hooks/useWorkspaceUsers'
 import { exportSalesCsv } from '../lib/csv'
 import { paidRatio, type SaleTab } from '../lib/sales'
 import { supabaseErrorMessage } from '../lib/supabase'
@@ -263,6 +264,7 @@ function SaleCard({
 export function SalesPage() {
   const toast = useToast()
   const { workspaceId } = useAuth()
+  const userLabel = useUserLabel()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [search, setSearch] = useState('')
@@ -345,7 +347,7 @@ export function SalesPage() {
         toast.info('Aucune vente à exporter avec ces filtres.')
         return
       }
-      exportSalesCsv(data)
+      exportSalesCsv(data, userLabel)
       toast.success(`${data.length} vente${data.length > 1 ? 's' : ''} exportée${data.length > 1 ? 's' : ''}.`)
     } catch (error) {
       toast.error(supabaseErrorMessage(error))

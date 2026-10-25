@@ -12,6 +12,7 @@ import {
   Ruler,
   Scale,
   Tag,
+  UserRound,
   Wallet,
 } from 'lucide-react'
 import type { Product, StockMovement } from '../../types/database'
@@ -19,6 +20,7 @@ import { EMPTY_MOVEMENT_FILTERS } from '../../types/database'
 import { cn, formatAmount, formatDate, formatQuantity } from '../../lib/utils'
 import { getProductStatus, STOCK_STATUS_LABELS } from '../../lib/stock'
 import { useMovements } from '../../hooks/useMovements'
+import { useUserLabel } from '../../hooks/useWorkspaceUsers'
 import { Modal } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Skeleton, SkeletonGroup } from '../ui/skeleton'
@@ -135,6 +137,7 @@ export interface ProductDetailsDialogProps {
 
 export function ProductDetailsDialog({ product, onClose, onEdit, onMovement }: ProductDetailsDialogProps) {
   const status = product ? getProductStatus(product) : 'ok'
+  const userLabel = useUserLabel()
 
   return (
     <Modal
@@ -234,6 +237,7 @@ export function ProductDetailsDialog({ product, onClose, onEdit, onMovement }: P
             <InfoItem icon={Ruler} label="Unité de mesure" value={product.unit} />
             <InfoItem icon={CalendarPlus} label="Créé le" value={formatDate(product.created_at)} />
             <InfoItem icon={CalendarClock} label="Dernière modification" value={formatDate(product.updated_at)} />
+            <InfoItem icon={UserRound} label="Créé par" value={userLabel(product.created_by)} />
           </dl>
 
           {product.description ? (
