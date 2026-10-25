@@ -128,9 +128,6 @@ export function AppLayout() {
           <Brand />
         </div>
         <NavList className="py-4" />
-        <div className="mt-auto px-6 pb-2">
-          <SyncIndicator status={syncStatus} />
-        </div>
         <SidebarFooter />
       </aside>
 
