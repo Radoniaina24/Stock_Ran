@@ -360,3 +360,102 @@ export const PAYMENT_RECORD_STATUS_LABELS: Record<PaymentStatus, string> = {
   validated: 'Encaissé',
   cancelled: 'Annulé',
 }
+
+// -----------------------------------------------------------------------
+// Établissement et facture journalière récapitulative
+// -----------------------------------------------------------------------
+
+/** Table `establishment_settings` : en-tête des documents imprimés. */
+export interface EstablishmentSettings {
+  user_id: string
+  name: string
+  address: string | null
+  phone: string | null
+  timezone: string
+  updated_at: string
+  updated_by: string | null
+}
+
+export interface DailyInvoiceItem {
+  id: string
+  product_id: string
+  product_reference: string
+  product_name: string
+  quantity: number
+  unit_price: number
+  line_total: number
+}
+
+export interface DailyInvoiceSale {
+  id: string
+  reference: string
+  client_id: string
+  client_name: string
+  client_code: string | null
+  created_at: string
+  subtotal: number
+  discount_amount: number
+  total_amount: number
+  paid_amount: number
+  balance_due: number
+  payment_status: SalePaymentStatus
+  items: DailyInvoiceItem[]
+}
+
+export interface DailyInvoiceTotals {
+  clients_count: number
+  sales_count: number
+  items_quantity: number
+  gross_amount: number
+  discount_amount: number
+  net_amount: number
+  paid_amount: number
+  balance_due: number
+}
+
+/** Réponse de `daily_invoice_data(date)` : état de la journée calculé en base. */
+export interface DailyInvoiceData {
+  invoice_date: string
+  invoice_number: string
+  generated_at: string
+  sales: DailyInvoiceSale[]
+  cancelled_sales_count: number
+  totals: DailyInvoiceTotals
+}
+
+export type DailyInvoiceStatus = 'closed' | 'reopened'
+
+export interface DailyInvoiceEvent {
+  id: number
+  action: 'closed' | 'reopened'
+  revision: number
+  net_amount: number
+  paid_amount: number
+  balance_due: number
+  comment: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface DailyInvoiceClosing {
+  id: string
+  status: DailyInvoiceStatus
+  revision: number
+  closed_at: string
+  closed_by: string | null
+  close_comment: string | null
+  reopened_at: string | null
+  reopened_by: string | null
+  reopen_reason: string | null
+  /** État figé au moment de la dernière clôture. */
+  snapshot: DailyInvoiceData
+  events: DailyInvoiceEvent[]
+}
+
+/** Réponse de `daily_invoice(date)` : état actuel + clôture éventuelle. */
+export interface DailyInvoiceResponse extends DailyInvoiceData {
+  /** Journée en cours selon le fuseau de l'établissement. */
+  today: string
+  can_reopen: boolean
+  closing: DailyInvoiceClosing | null
+}

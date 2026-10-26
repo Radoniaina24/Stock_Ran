@@ -14,10 +14,12 @@ import {
   RadioTower,
   RotateCcw,
   ShieldCheck,
+  Store,
   UserRound,
   type LucideIcon,
 } from 'lucide-react'
 import { PageHeader } from '../components/layout/PageHeader'
+import { EstablishmentCard } from '../components/settings/EstablishmentCard'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -44,6 +46,7 @@ import { EMPTY_MOVEMENT_FILTERS } from '../types/database'
 
 const SECTIONS: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'compte', label: 'Compte', icon: UserRound },
+  { id: 'etablissement', label: 'Établissement', icon: Store },
   { id: 'apparence', label: 'Apparence', icon: Palette },
   { id: 'securite', label: 'Sécurité', icon: ShieldCheck },
   { id: 'donnees', label: 'Données', icon: Database },
@@ -578,6 +581,15 @@ export function SettingsPage() {
           description="Informations sur le compte actuellement connecté."
         >
           <AccountCard />
+        </SettingsSection>
+
+        <SettingsSection
+          id="etablissement"
+          icon={Store}
+          title="Établissement"
+          description="Nom, coordonnées et fuseau horaire imprimés sur les factures journalières."
+        >
+          <EstablishmentCard />
         </SettingsSection>
 
         <SettingsSection

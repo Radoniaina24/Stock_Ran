@@ -2,9 +2,9 @@
 
 Application web de gestion de stock et de ventes pour un usage personnel ou une petite
 activité : produits, entrées/sorties de stock, clients, ventes, paiements partiels,
-créances clients, historique et tableau de bord.
+créances clients, facture journalière récapitulative, historique et tableau de bord.
 
-Aucune gestion de factures, fournisseurs ni commandes.
+Aucune gestion de fournisseurs ni de commandes.
 
 ---
 
@@ -44,9 +44,15 @@ Aucune gestion de factures, fournisseurs ni commandes.
   historique consultable et annulation tracée (les paiements validés ne sont jamais supprimés).
 - **Créances clients** : total à recouvrer, ventes partiellement réglées, encaissement direct
   depuis la fiche de la vente.
+- **Factures journalières** : une facture récapitulative unique par date (`FACT-AAAAMMJJ`)
+  regroupant les ventes validées de tous les clients, avec le détail des lignes, les
+  sous-totaux par client et les totaux de la journée (brut, remises, net, encaissé, reste à
+  payer). Aperçu avant impression et impression thermique 58 mm / 80 mm via `react-to-print`.
+  Clôture explicite de la journée (totaux figés, journal des clôtures et réouvertures).
 - **Historique** : recherche, filtres (type, produit, période, motif), export CSV, quantités
   avant/après, badge entrée (vert) / sortie (rouge) / ajustement (bleu).
-- **Paramètres** : nom de l'application, densité d'affichage, changement de mot de passe,
+- **Paramètres** : nom de l'application, densité d'affichage, informations de
+  l'établissement (nom, adresse, téléphone, fuseau horaire), changement de mot de passe,
   informations du compte, déconnexion.
 
 La quantité d'un produit ne peut **jamais** être modifiée depuis un formulaire : toute
@@ -102,6 +108,7 @@ npm run dev
    | 7 | `supabase/migrations/0007_shared_workspace.sql` | espace de travail partagé : table `workspace_members`, fonction `current_workspace_id()`, RLS et RPC filtrés par espace |
    | 8 | `supabase/migrations/0008_auto_join_workspace.sql` | tout nouveau compte rejoint automatiquement l'espace du premier compte créé |
    | 9 | `supabase/migrations/0009_action_authors.sql` | auteur de chaque action (`created_by`, `cancelled_by`) et RPC `workspace_users()` |
+   | 10 | `supabase/migrations/0010_daily_invoices.sql` | facture journalière : table `establishment_settings`, clôtures `daily_invoices` + journal `daily_invoice_events`, RPC `daily_invoice`, `close_daily_invoice`, `reopen_daily_invoice`, verrou des ventes d'une journée clôturée |
 
 5. Relancer `npm run dev`.
 
@@ -114,8 +121,8 @@ ne conserver que le compte propriétaire.
 
 ```
 supabase/
-  migrations/            SQL reproductible (0001 → 0009)
-  tests/                 scripts de tests SQL (stock et ventes)
+  migrations/            SQL reproductible (0001 → 0010)
+  tests/                 scripts de tests SQL (stock, ventes, facture journalière)
 src/
   components/
     layout/              AppLayout, sidebar, navigation mobile, en-têtes de page
@@ -123,10 +130,12 @@ src/
     products/            badges de statut, formulaire et détails produit
     clients/             formulaire client
     sales/               formulaire de vente, paiement, détails et badges de statut
+    invoices/            facture journalière (ticket thermique), styles d'impression, clôture
+    settings/            informations de l'établissement
     stock/               badges de mouvement, derniers mouvements
     dashboard/           cartes d'indicateurs, graphe d'activité, alertes de stock
-  pages/                 Dashboard, Produits, Clients, Ventes, Mouvements, Historique,
-                         Paiements, Créances, Paramètres, Connexion
+  pages/                 Dashboard, Produits, Clients, Ventes, Factures journalières,
+                         Mouvements, Historique, Paiements, Créances, Paramètres, Connexion
   hooks/                 useAuth, usePreferences, requêtes TanStack Query
   lib/                   client Supabase, utilitaires, statuts de stock, export CSV
   router/                routes et garde d'authentification
@@ -204,6 +213,67 @@ select public.record_stock_exit('ID_DU_PRODUIT', 1, 'perte');
 La session 2 bloque tant que la session 1 détient le verrou, puis repart du stock réel :
 elle échoue avec `Stock insuffisant : disponible 0, demandé 1.` Le stock final est `0`, jamais
 négatif.
+
+---
+
+## Facture journalière récapitulative
+
+Page **Factures journalières** (`/factures`, ou `/factures?date=AAAA-MM-JJ` pour un jour précis).
+
+### Règles de calcul
+
+- Une seule facture **logique** par espace et par date, numéro stable `FACT-AAAAMMJJ` : elle est
+  calculée à la lecture par la fonction SQL `daily_invoice(date)` ; ni l'affichage, ni
+  l'actualisation, ni l'impression ne créent d'enregistrement.
+- Ventes incluses : `status = 'validated'` dont la **date métier** `sale_date` est la date choisie
+  (jamais `created_at`). Les ventes annulées sont exclues et seulement comptées en information.
+- Lignes : prix unitaire et libellé **figés** dans `sale_items` (un changement de prix du produit
+  n'a aucun effet). `Total ligne = Quantité × Prix unitaire`.
+- `Total net = Total brut − Remises` ; `Reste à payer = Total net − paiements validés affectés aux
+  ventes du jour` (vue `sale_balances`, chaque paiement compté une seule fois).
+- Une section par client ; plusieurs ventes d'un même client sont regroupées sous son nom avec
+  leurs références ; les achats de clients différents ne sont jamais fusionnés.
+- Le fuseau horaire de l'établissement (**Paramètres → Établissement**, `Indian/Antananarivo`
+  par défaut) détermine la journée en cours.
+
+### Clôture de la journée
+
+- **Clôturer la journée** (`close_daily_invoice`) fige l'instantané complet et les totaux dans
+  `daily_invoices`. La version clôturée est celle imprimée par défaut.
+- Une journée clôturée refuse toute nouvelle vente, annulation ou modification de montant à
+  cette date (trigger `sales_guard_closed_day`). Les encaissements de créances restent possibles :
+  l'écart avec l'état figé est signalé à l'écran.
+- **Rouvrir** (`reopen_daily_invoice`) est réservé au propriétaire de l'espace et exige un motif.
+  Clôtures et réouvertures sont journalisées dans `daily_invoice_events` (auteur, date, totaux).
+- Un verrou de journée (advisory lock) fait attendre la clôture jusqu'à la fin des ventes en cours
+  sur cette date : deux caisses qui vendent en même temps sont toujours incluses.
+
+### Configuration de l'imprimante thermique
+
+1. Choisir le papier (**58 mm** par défaut, ou **80 mm**) dans la page ; le réglage est conservé
+   sur l'appareil. Zone imprimée : 48 mm (58 mm) ou 72 mm (80 mm).
+2. **Imprimer la facture** : les données sont rechargées depuis Supabase, puis seul le ticket est
+   envoyé à l'impression (`react-to-print`), sans navigation ni boutons.
+3. Dans la fenêtre d'impression (Chrome ou Edge recommandés) : destination = imprimante
+   thermique, **Format du papier** = rouleau 58 / 80 mm, **Marges** = Aucune, **Échelle** = 100 %,
+   **En-têtes et pieds de page** décochés.
+4. Par défaut la longueur de page est ajustée au contenu (`@page size: 58mm × hauteur`). Si le
+   pilote coupe le ticket ou crée plusieurs pages, décocher « Ajuster la longueur au contenu » pour
+   laisser le pilote gérer le rouleau (Firefox ignore toujours ce réglage).
+5. Texte rogné sur les côtés : vérifier la largeur imprimable dans les préférences du pilote.
+
+### Tests
+
+- SQL : `supabase/tests/daily_invoice_test.sql` (annulé en fin de script) couvre une vente unique,
+  plusieurs clients et produits, plusieurs ventes d'un même client, ventes partielle / impayée /
+  payée, journée vide, vente annulée, changement de prix, lectures répétées sans écriture, ventes de
+  deux comptes de l'espace, clôture, refus après clôture, réouverture tracée et isolation RLS.
+- Vitest : `src/lib/dailyInvoice.test.ts`, `src/components/invoices/DailyInvoice.test.tsx`
+  (rendu 58 mm et 80 mm) et `src/pages/DailyInvoicePage.test.tsx` (impression sans écriture).
+- Concurrence réelle : ouvrir deux sessions SQL authentifiées sur le même espace ; dans la
+  première, `begin;` puis `create_sale(...)` daté du jour sans valider ; dans la seconde,
+  `select public.close_daily_invoice('AAAA-MM-JJ');` attend la fin de la première transaction
+  (`commit;`), puis inclut la vente dans les totaux figés.
 
 ### Vérification manuelle
 

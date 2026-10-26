@@ -17,6 +17,10 @@ vi.mock('../hooks/useAuth', () => ({
 
 vi.mock('../hooks/useMovements', () => ({ fetchMovementsExport: vi.fn() }))
 vi.mock('../hooks/useWorkspaceUsers', () => ({ useUserLabel: () => () => '—' }))
+vi.mock('../hooks/useEstablishment', () => ({
+  useEstablishment: () => ({ isSuccess: true, isLoading: false, isError: false, data: null }),
+  useSaveEstablishment: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}))
 
 vi.mock('../components/ui/toast', () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }),

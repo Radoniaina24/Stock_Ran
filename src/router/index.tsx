@@ -22,6 +22,9 @@ const ClientsPage = lazy(() =>
 const SalesPage = lazy(() =>
   import('../pages/SalesPage').then((module) => ({ default: module.SalesPage })),
 )
+const DailyInvoicePage = lazy(() =>
+  import('../pages/DailyInvoicePage').then((module) => ({ default: module.DailyInvoicePage })),
+)
 const PaymentsPage = lazy(() =>
   import('../pages/PaymentsPage').then((module) => ({ default: module.PaymentsPage })),
 )
@@ -44,6 +47,7 @@ export const router = createBrowserRouter([
           { path: 'produits', element: <ProductsPage /> },
           { path: 'clients', element: <ClientsPage /> },
           { path: 'ventes', element: <SalesPage /> },
+          { path: 'factures', element: <DailyInvoicePage /> },
           { path: 'mouvements', element: <MovementsPage /> },
           { path: 'historique', element: <HistoryPage /> },
           { path: 'paiements', element: <PaymentsPage /> },
