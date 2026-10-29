@@ -170,13 +170,30 @@ export async function listSaleItems(saleId: string): Promise<SaleItem[]> {
   return (data ?? []) as SaleItem[]
 }
 
-/** Annule la vente : le stock est réintégré et les paiements restent tracés. */
-export async function cancelSale(saleId: string, comment: string | null): Promise<Sale> {
+export interface CancelSaleResult {
+  sale: Sale
+  /** Somme des paiements marqués « remboursés » par l'annulation (0011). */
+  refundedAmount: number
+}
+
+/**
+ * Annule la vente : le stock est réintégré et, dans la même transaction,
+ * tous les paiements non annulés sont marqués remboursés (cancelled).
+ */
+export async function cancelSale(saleId: string, comment: string | null): Promise<CancelSaleResult> {
   const { data, error } = await supabase.rpc('cancel_sale', {
     p_sale_id: saleId,
     p_comment: comment,
   })
 
   if (error) throw error
-  return data as Sale
+
+  const { data: refunded, error: refundError } = await supabase.rpc('sale_refunded_amount', {
+    p_sale_id: saleId,
+  })
+
+  return {
+    sale: data as Sale,
+    refundedAmount: refundError ? 0 : Number(refunded ?? 0),
+  }
 }

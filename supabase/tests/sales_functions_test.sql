@@ -1,7 +1,7 @@
 -- =====================================================================
 -- Tests des fonctions de vente, de paiement et d annulation
 --
--- Prérequis : migrations 0001 -> 0006 exécutées.
+-- Prérequis : migrations 0001 -> 0011 exécutées.
 -- À exécuter dans le SQL Editor de Supabase (ou sur une base locale).
 --
 -- Le script complet est ANNULÉ à la fin (ROLLBACK) : aucune donnée de
@@ -27,6 +27,8 @@
 --   #16 vente à montant nul : soldée, aucune dette artificielle
 --   #17 client avec ventes non supprimable
 --   #18 statistiques du tableau de bord
+--   #19 annulation d'une vente payée : paiements remboursés (0011),
+--       stock réintégré, refus sur une journée clôturée (0010)
 --
 -- Le scénario de concurrence réelle (deux sessions simultanées) est
 -- décrit dans le README.md.
@@ -609,7 +611,81 @@ begin
 
   reset role;
 
-  raise notice '✔ TOUS LES TESTS DES VENTES SONT PASSÉS (scénarios #1 à #18).';
+  -- ------------------------------------------------------------------
+  -- #19 Annulation d'une vente payée : paiements remboursés
+  -- ------------------------------------------------------------------
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_user, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', v_user::text, true);
+
+  select quantity into v_qty from public.products where id = v_pa;
+
+  v_sale3 := public.create_sale(
+    p_client_id => v_client.id,
+    p_sale_date  => '2026-10-14'::date,
+    p_items      => jsonb_build_array(
+      jsonb_build_object('product_id', v_pa, 'quantity', 2, 'unit_price', 1000))
+  );
+  perform public.record_payment(v_sale3.id, 1500, 'cash');
+  v_pay := public.record_payment(v_sale3.id, 500, 'mobile_money', 'MM-019');
+
+  v_sale3 := public.cancel_sale(v_sale3.id, 'Client a rendu la marchandise');
+
+  if v_sale3.status <> 'cancelled' or v_sale3.payment_status <> 'cancelled' then
+    raise exception 'ÉCHEC (#19) : statuts cancelled attendus, obtenus % / %.',
+      v_sale3.status, v_sale3.payment_status;
+  end if;
+
+  select count(*) into v_count from public.payments
+  where sale_id = v_sale3.id and status <> 'cancelled';
+  if v_count <> 0 then
+    raise exception 'ÉCHEC (#19) : % paiement(s) encore non annulé(s).', v_count;
+  end if;
+
+  select count(*) into v_count from public.payments
+  where sale_id = v_sale3.id and cancelled_at is not null
+    and cancel_comment = 'Remboursé – annulation ' || v_sale3.reference
+                         || ' : Client a rendu la marchandise';
+  if v_count <> 2 then
+    raise exception 'ÉCHEC (#19) : 2 paiements remboursés tracés attendus, obtenu %.', v_count;
+  end if;
+
+  if public.sale_refunded_amount(v_sale3.id) <> 2000 then
+    raise exception 'ÉCHEC (#19) : montant remboursé attendu 2000, obtenu %.',
+      public.sale_refunded_amount(v_sale3.id);
+  end if;
+
+  select quantity into v_amount from public.products where id = v_pa;
+  if v_amount <> v_qty then
+    raise exception 'ÉCHEC (#19) : stock A attendu % après réintégration, obtenu %.', v_qty, v_amount;
+  end if;
+
+  -- Journée clôturée : ni annulation ni remboursement.
+  v_sale3 := public.create_sale(
+    p_client_id => v_client.id,
+    p_sale_date  => '2026-10-15'::date,
+    p_items      => jsonb_build_array(
+      jsonb_build_object('product_id', v_pa, 'quantity', 1, 'unit_price', 1000))
+  );
+  v_pay := public.record_payment(v_sale3.id, 1000, 'cash');
+  perform public.close_daily_invoice('2026-10-15'::date);
+
+  v_raised := false;
+  begin
+    perform public.cancel_sale(v_sale3.id, null);
+  exception when others then
+    v_raised := true;
+    v_msg := SQLERRM;
+  end;
+  if not v_raised or v_msg not like 'La journée du 15/10/2026 est clôturée%' then
+    raise exception 'ÉCHEC (#19) : annulation sur jour clôturé non refusée (« % »).', v_msg;
+  end if;
+  select status into v_msg from public.payments where id = v_pay.id;
+  if v_msg <> 'validated' then
+    raise exception 'ÉCHEC (#19) : paiement d''un jour clôturé remboursé (%).', v_msg;
+  end if;
+
+  raise notice '✔ TOUS LES TESTS DES VENTES SONT PASSÉS (scénarios #1 à #19).';
 end $$;
 
 rollback;

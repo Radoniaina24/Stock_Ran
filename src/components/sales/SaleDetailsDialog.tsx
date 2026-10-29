@@ -72,15 +72,26 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
   const canPay = Boolean(data) && !isCancelled && (data?.balance_due ?? 0) > 0
 
   const lines = useMemo(() => items.data ?? [], [items.data])
+  const toRefund = useMemo(
+    () =>
+      (payments.data ?? [])
+        .filter((payment) => payment.status !== 'cancelled')
+        .reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0),
+    [payments.data],
+  )
 
   const handleCancelSale = async () => {
     if (!data) return
     try {
-      await cancel.mutateAsync({
+      const result = await cancel.mutateAsync({
         saleId: data.id,
         comment: cancelComment.trim() === '' ? null : cancelComment.trim(),
       })
-      toast.success('Vente annulée et stock réintégré.')
+      toast.success(
+        result.refundedAmount > 0
+          ? `Vente annulée, stock réintégré et ${formatAmount(result.refundedAmount)} de paiements marqués remboursés.`
+          : 'Vente annulée et stock réintégré.',
+      )
       setCancelSaleOpen(false)
       setCancelComment('')
       onClose()
@@ -330,8 +341,11 @@ export function SaleDetailsDialog({ sale, onClose }: SaleDetailsDialogProps) {
         loading={cancel.isPending}
         message={
           <>
-            Le stock sera réintégré et les paiements déjà encaissés resteront tracés. La vente
-            ne disparaît pas de l’historique.
+            Le stock sera réintégré.{' '}
+            {toRefund > 0
+              ? `${formatAmount(toRefund)} de paiements seront marqués remboursés (annulés, trace conservée).`
+              : 'Aucun paiement à rembourser.'}{' '}
+            La vente ne disparaît pas de l’historique.
             <label htmlFor="cancel-sale-comment" className="mt-3 block text-sm font-medium text-foreground">
               Motif d’annulation (facultatif)
             </label>
